@@ -124,25 +124,13 @@
 #define USE_HEX2BIN
 #define USE_HEXDUMP  -1   /* no wrap */
 #define USE_READINT
-#define USE_BITMASK
 #define USE_TIMEDIFF
-#define USE_WRITEINT      /* log2 */
 #define USE_ERR_ANNOTATE
-#define USE_GCD
 #include "common-util.h"
 
 #include "common-prime-tools.h"
 
 #include "modred-carmichael.h"
-
-static inline void simd_report1(const char *msg,
-                            const uint16_t *p, unsigned int pn) ;
-
-static inline void simd_report_mod1(const char *msg,
-                            const uint16_t *p, unsigned int pn) ;
-
-static inline void simd_report_0ff(const char *msg,
-                               const uint16_t *p, unsigned int pn) ;
 
 //--------------------------------------
 #define  PR64_RAW       0x80000000  /* no digit separator */
@@ -724,7 +712,6 @@ unsigned int simd_is_all0x64x16_inpl(uint16_t v[64], uint16_t tmp[16])
 	simd_or16x16(tmp, &(v[32]), &(v[48]));       // 2 3
 	simd_or16x16(v,     v,      &(v[16]));       // 0 1
 	simd_or16x16(v,     tmp,      v     );       // 0 1 2 3
-// simd_report_0ff("## CMASK.OR=", v, 16);
 
 	return simd_is_all0(v);
 }
@@ -2032,8 +2019,6 @@ uint16_t simd_no_spfactor64x16(uint16_t tmp[ 64 ],
 	simd_spcmp16x16(&(tmp[ 32 ]),&(tmp[ 32 ]),&(inv[ 32 ]),&(limit[ 32 ]));
 	simd_spcmp16x16(&(tmp[ 48 ]),&(tmp[ 48 ]),&(inv[ 48 ]),&(limit[ 48 ]));
 
-// simd_report_0ff("## CMASK=", tmp, 64);
-
 	return simd_is_all0x64x16_inpl(tmp, tm2);
 }
 #endif   //-----  /delimiter: generated SIMD columns  ------------------------
@@ -2394,213 +2379,6 @@ static inline void pp_mod16_mod_normalize(struct PP_Mod16bit *ps)
 		for (i=0; i<ARRAY_ELEMS(ps->modn); ++i)
 			ps->modn[i] %= firstprimes[i];
 	}
-}
-
-
-//--------------------------------------
-static inline void simd_report1(const char *msg,
-                            const uint16_t *p, unsigned int pn)
-{
-	unsigned int i;
-
-	if (msg)
-		printf("%s", msg);
-
-	for (i=0; i<pn; ++i) {
-		printf("%s", i ? "," : "");
-		printf("%" PRIu16, p[i]);
-	}
-	printf("\n");
-}
-
-
-//--------------------------------------
-static inline void simd_report_mod1(const char *msg,
-                            const uint16_t *p, unsigned int pn)
-{
-	unsigned int i;
-
-	if (msg)
-		printf("MOD(%s)=", msg);
-
-	for (i=0; i<pn; ++i) {
-		printf("%s", i ? "," : "");
-		printf("%" PRIu16, p[i] % firstprimes[i]);
-	}
-	printf("\n");
-}
-
-
-//--------------------------------------
-static inline void simd_report_0ff(const char *msg,
-                               const uint16_t *p, unsigned int pn)
-{
-	unsigned int i;
-
-	if (msg)
-		printf("%s", msg);
-
-	for (i=0; i<pn; ++i) {
-		printf("%s", i ? "," : "");
-		printf("x%" PRIx16, p[i]);
-	}
-	printf("\n");
-}
-
-
-//--------------------------------------
-static inline void pp_mod16report(const struct PP_Mod16bit *ps,
-                                              unsigned int flags)
-{
-	if (ps) {
-		unsigned int i, noncanon = 0;
-
-		fflush(stdout);
-
-				// reduction is not to canonical mod-prime,
-				// since the is-multiple-of-P check tolerates
-				// non-reduced inputs
-		printf("## MOD16=");
-		//
-		for (i=0; i<ARRAY_ELEMS(ps->modn); ++i) {
-			printf("%s", i ? "," : "");
-			printf("%" PRIu16, ps->modn[i]);
-
-			noncanon |= (ps->modn[i] >= firstprimes[i]);
-		}
-		printf("\n");
-
-		if (noncanon) {
-			printf("## MOD16.C=");
-			//
-			for (i=0; i<ARRAY_ELEMS(ps->modn); ++i) {
-				printf("%s", i ? "," : "");
-				printf("%" PRIu16, ps->modn[i] % firstprimes[i]);
-			}
-		}
-		printf("\n");
-	}
-
-	(void) flags;
-}
-
-
-#if 0
-//--------------------------------------
-static int is_out_of_range(const struct PP_Mod16bit *ps)
-{
-	unsigned int i, fnd = 0;
-	
-	for (i=0; i<ARRAY_ELEMS(ps->modn); ++i) {
-		if ((0x8000 & ps->modn[i]) && !fnd)
-			fnd = 1+i;
-	}
-
-	return fnd;
-}
-#endif
-
-
-/*--------------------------------------
- * check all possible values for each table entry
- *
- * returns >0 if all entries are correct
- *         0  if anything failed
- */
-static int pp_simdtable_verifies(void)
-{
-	unsigned int i;
-
-	BUILD_ASSERT(ARRAY_ELEMS(firstprimes_inverse_simd) ==
-	             ARRAY_ELEMS(firstprimes_mullimit_simd));
-	BUILD_ASSERT(ARRAY_ELEMS(firstprimes_inverse_simd) ==
-	             ARRAY_ELEMS(firstprimes_mod2range_simd));
-	//
-	BUILD_ASSERT(ARRAY_ELEMS(firstprimes_inverse_simd) <=
-	             ARRAY_ELEMS(firstprimes));
-
-	for (i=0; i<ARRAY_ELEMS(firstprimes_inverse_simd); ++i) {
-		uint32_t j;
-
-				// inverse is correct
-		if ((uint16_t) (firstprimes[i] * firstprimes_inverse_simd[i]) != 1) {
-			uint32_t tmp = firstprimes[i];
-
-			tmp *= firstprimes_inverse_simd[i];
-
-			printf("I=%u INVERSE MISMATCH d*inv(d)=x%" PRIx16
-			       "*x%" PRIx16 " = x%" PRIx16 "'%" PRIx16 "\n",
-			       i, firstprimes[i],
-			       firstprimes_inverse_simd[i],
-			       (uint16_t) (tmp >> 16), (uint16_t) tmp);
-
-			return 0;
-		}
-
-		for (j=0; j<UINT32_C(0x10000); ++j) {
-			uint16_t mod1, mod2,        // actual Q, 2Q+1 mod-prime
-			         mul1, mul2;
-			uint16_t jj;
-				// effective j: possibly after
-				// x8000 reduction
-
-			jj = (j >= firstprimes_mod2range_simd[i])
-			      ? (j + firstprimes_mod2range_simd[i]) : j;
-
-			mod1  =       jj  % firstprimes[i];
-			mod2  = (jj+jj+1) % firstprimes[i];
-					//
-					// inv*Q, inv*(2Q+1), respectively
-			mul1  =       jj  * firstprimes_inverse_simd[i];
-			mul2  = (jj+jj+1) * firstprimes_inverse_simd[i];
-
-// printf("xxx %u,%u mod=%u,%u mul=%x,%x lim=%x ", j, jj, mod1, mod2, mul1, mul2,
-//      firstprimes_mullimit_simd[i]);
-
-{
-uint16_t maxlim = ~((uint16_t) 0);
-
-maxlim /= firstprimes[i];
-
-printf("max(lim)=%x inv=%x ", maxlim, firstprimes_inverse_simd[i]);
-}
-
-					// limit indicates divides(0) or
-					// has >0 remainder(>0)
-					//
-			mul1  = (mul1 <= firstprimes_mullimit_simd[i])
-			         ? 0 : mul1;
-			mul2  = (mul2 <= firstprimes_mullimit_simd[i])
-			         ? 0 : mul2;
-
-printf("mul'=%x,%x div=%u,%u prime=%u\n", mul1, mul2, !mod1, !mod2,
-       firstprimes[i]);
-
-			if (!!mul1 != !!mod1) {
-				printf("I=%u X=%u MISMATCH(Q) prime=%"
-				       PRIu16 " div=%u,t=%u\n",
-				       i, (unsigned int) j,
-				       firstprimes[i],
-				       !!mod1, (unsigned int) mul1);
-				return 0;
-			}
-
-			if (!!mul2 != !!mod2) {
-#if 0
-				printf("I=%u X=%u MISMATCH(Q) prime=%"
-				       PRIu16 " div=%u,t=%u\n",
-				       i, (unsigned int) j,
-				       firstprimes[i],
-				       !!mod1, (unsigned int) mul1);
-				return 0;
-#endif
-			}
-		}
-	}
-
-printf("XXX TABLE OK\n");
-fflush(stdout);
-	return 1;
 }
 
 
