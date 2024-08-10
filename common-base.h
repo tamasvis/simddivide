@@ -222,19 +222,6 @@
  *   MSBF_READ(p, n)       -- read <n> bytes as big-endian to uint64 [up to 8]
  *   MSBF_WRITE(p, n, v)   -- write <n> bytes as big-endian [up to 8]
  *
- *   NATIVE<n>_READ(p)     -- read <n> bytes using the 'fastest' [most
- *                         -- convenient etc.] platform-specific way
- *   NATIVE<n>_WRITE(p, v) -- write <n> bytes... counterpart
- *                         -- the endianness of 'any' endian access is not
- *                         -- portable across architectures, but it is fixed
- *                         -- [and remains stable] for any given platforms.
- *                         --
- *                         -- Use of these forms is recommended to access
- *                         -- memory-based data structures [not intended to
- *                         -- be portable], opaque values where only exact
- *                         -- comparison is needed etc., without considerations
- *                         -- for access-alignment, endianness etc.
- *
  * 64-bit types are always defined, even if system is implied to be 32-bit.
  * Contact us if this creates a problem for your platform; all our current
  * targets supply 64-bit definitions.
@@ -356,10 +343,6 @@
  */
 /* note: Solaris 9- detection would come here, if ever needed: */
 /*       Solaris before 10 lacks C99 stdint.h                  */
-#if 0
-...if defined solaris...
-#error "Solaris, before 10: need stdint.h equivalents"
-#endif
 
 #if !defined(_WIN32) && !defined(_WIN64)  /*================================*/
 /* non-Windows: assume C99 POSIX stdint.h and inttypes.h are available */
@@ -490,23 +473,6 @@
 #endif  /*-----  LLVM/clang  -----------------------------------------------*/
 
 
-#if defined(__INTEL_COMPILER)  /*-------------------------------------------*/
-#if !defined(SYS__CC_GCC_COMPAT)
-#define  SYS__CC_GCC_COMPAT  "gcc-compatible: Intel C"
-#endif
-
-#if defined(SYS__CC_INTELC)
-#error  "someone already claims to have recognized Intel C: unexpected"
-#endif
-/**/
-#define  SYS__CC_INTELC  "gcc-compatible: Intel C"
-
-#if !defined(SYS__CC_FOUND)
-#define  SYS__CC_FOUND  "gcc-compatible: Intel C"
-#endif
-#endif  /*-----  Intel C (icc)  --------------------------------------------*/
-
-
 #if defined(__TINYC__)  /*--------------------------------------------------*/
 #if !defined(SYS__CC_GCC_COMPAT)
 #define  SYS__CC_GCC_COMPAT  "gcc-compatible: tcc"
@@ -522,36 +488,6 @@
 #define  SYS__CC_FOUND  "gcc-compatible: tcc"
 #endif
 #endif  /*-----  tcc  ------------------------------------------------------*/
-
-
-#if defined(__IBMC__)  /*---------------------------------------------------*/
-#if !defined(SYS__CC_GCC_COMPAT)
-#define  SYS__CC_GCC_COMPAT  "partially gcc-compatible: IBM C (xlc)"
-#endif
-
-#if defined(SYS__CC_XLC)
-#error  "someone already claims to have recognized IBM C (xlc): unexpected"
-#endif
-/**/
-#define  SYS__CC_XLC  "partially gcc-compatible: IBM C (xlc)"
-
-#if !defined(SYS__CC_FOUND)
-#define  SYS__CC_FOUND  "partially gcc-compatible: IBM C xlc"
-#endif
-#endif  /*-----  xlc  ------------------------------------------------------*/
-
-
-#if defined(_MSC_VER)  /*-----  Microsoft C  -------------------------------*/
-#if defined(SYS__CC_MSVC)
-#error  "someone already claims to have recognized Visual C: unexpected"
-#endif
-/**/
-#define  SYS__CC_MSVC  "Microsoft Visual C"
-
-#if !defined(SYS__CC_FOUND)
-#define  SYS__CC_FOUND  "Microsoft Visual C"
-#endif
-#endif  /*-----  Microsoft C  ----------------------------------------------*/
 
 
 #if defined(__GNUC__) && !defined(SYS__CC_FOUND)  /*------------------------*/
@@ -742,16 +678,7 @@
 
 #if !defined(INLINE)  /*----------------------------------------------------*/
 
-/* xlc provides gcc inline _behaviour_ but under a different identifier
- * check for xlc first, and let all other gcc-like compilers pick default later
- */
-#if defined(SYS__CC_XLC)
-#define  INLINE  __inline__  /* xlc, gcc-compatibility mode */
-
-#elif defined(SYS__CC_MSVC)
-#define  INLINE  __inline    /* Microsoft VC: plain "inline" is C++ only */
-
-#elif defined(SYS__CC_GCC_COMPAT)
+#if defined(SYS__CC_GCC_COMPAT)
 #define  INLINE  inline      /* basic gcc, C89 plus lots of extensions */
                              /* LLVM/clang support is compatible (for  */
                              /* static-inline purposes)                */
@@ -765,22 +692,12 @@
 #define MARK_UNUSED(prm)   (void) (prm)      /* silence 'unused' warning */
 #endif
 
-/*-------------------------------------
- * ...stringification needs one round of indirection
- * Visual C chokes on it, at least the 2008 version does
- * note: splint predates this varargs form, prevents use on recent projects
- */
-#if !defined(_WIN32)
-#define  CB__STRINGIFY1(...)  # __VA_ARGS__
-#define  STRINGIFY(...)     CB__STRINGIFY1(__VA_ARGS__)
-#endif
-
 #if !defined(ARRAY_ELEMS)
 #define  ARRAY_ELEMS(arr)  (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
 /* breaks compilation if condition is false
- * leaves no runtime code
+ * leaves no runtime code (_Static_assert for older C compilers)
  */
 #if !defined(BUILD_ASSERT)
 #define  BUILD_ASSERT(condition) ((void) sizeof(char[ 1- 2*!(condition) ]))
@@ -792,22 +709,6 @@
          BUILD_ASSERT((condition), "build-assert")
 #endif
 
-#define  ROUND_UP_UNIT(n, unit)  ((((n) +((unit) -1)) /(unit)) *(unit))
-#define  BIT2BYTE(n)             (((n) +7) /8)
-
-/* 0 accepted as power-of-2, must be filtered if invalid
- * strictly speaking, this should be called 'is _integer_ power of two'
- */
-#define  IS_POWER_OF_TWO(n)  (0 == ((n) & ((n) -1)))
-
-
-/*---  path/return-annotating diags  ---------------------------------------*/
-/* allow returning values with diagnostic message (return RETi(..., value))
- * ...currently, placeholder, unless otherwise defined...
- */
-#if !defined(RETi)
-#define  RETi(msg, val)  (val)
-#endif
 #endif   /*===  /misc. attributes  =========================================*/
 
 
@@ -825,9 +726,6 @@
 #undef  MSBF2_WRITE
 #undef  MSBF4_WRITE
 #undef  MSBF8_WRITE
-#undef  NATIVE2_WRITE
-#undef  NATIVE4_WRITE
-#undef  NATIVE8_WRITE
 /**/
 #undef  LSBF2_READ
 #undef  LSBF4_READ
@@ -835,9 +733,6 @@
 #undef  MSBF2_READ
 #undef  MSBF4_READ
 #undef  MSBF8_READ
-#undef  NATIVE2_READ
-#undef  NATIVE4_READ
-#undef  NATIVE8_READ
 
 
 /*---  auto-detected infrastructure versions  --------------------------------
@@ -1034,43 +929,6 @@
 #endif     /* x86, any */
 
 
-/* z/VM and non-VM S390 overlap partially. Detect VM first, then check
- * for other S390 configs.
- *
- * our current VM setups are all built using XLC; distinguish this from
- * other systems which may define __VM__ [VMware?]. icsflib and other
- * z/VM deployments always define __VM__ in their build env, not set
- * by compiler itself [as of 2016-10]
- */
-#if defined(__VM__) && defined(SYS__CC_XLC)  /*-----------------------------*/
-#if defined(SYS__ARCH)
-#error "conflicting architecture found (z/VM, xlc)"
-#endif
-#define  SYS__ARCH         "S390, z/VM, xlc"
-#define  SYS__BIG_ENDIAN   "S390, z/VM, assuming native big-endian"
-
-#if defined(__CMS__)
-#define  SYS__S390_BITS    32  /* z/VM, CMS[Cambridge Monitor System]: 32-bit */
-#else
-#define  SYS__S390_BITS    64
-#define  SYS__64BIT       "z/VM, non-CMS, assuming 64-bit build"
-#endif
-
-	/*----  not VM/xlc:  ---------------------------------------------*/
-#elif defined(_I390_) && defined(__s390x__)
-
-	/* i390 is 64-bit only, as of 2017-06, not expected to need 32-bit */
-#if defined(SYS__ARCH)
-#error "conflicting architecture found (mainframe, i390)"
-#endif
-
-#define  SYS__ARCH         "i390"
-#define  SYS__BIG_ENDIAN   "i390 assuming native big-endian"
-#define  SYS__S390_BITS    64  /* i390 is 64-bit only */
-#define  SYS__I390         /* mark as detected */
-
-#else      /*----  not VM/xlc, not i390  -----------------------------------*/
-
 #if defined(__s390__)  /*---------------------------------------------------*/
 #if defined(SYS__ARCH)
 #error "conflicting architecture found (S390, gcc+derivatives)"
@@ -1086,7 +944,6 @@
 #define  SYS__S390_BITS    32
 #endif         /* s390x */
 #endif   /*----  s390  -----------------------------------------------------*/
-#endif   /*----  VM [or other S390]  ---------------------------------------*/
 
 
 #if defined(SYS__CC_XLC) && defined(__PPC__)  /*----------------------------*/
@@ -1190,44 +1047,32 @@
 #if defined(SYS__BIG_ENDIAN)
 #define MSBF2_READ(p)    *((const uint16_t *) (p))
 #define MSBF4_READ(p)    *((const uint32_t *) (p))
-#define NATIVE2_READ(p)  *((const uint16_t *) (p))
-#define NATIVE4_READ(p)  *((const uint32_t *) (p))
 
 #if defined(SYS__64BIT)
 #define MSBF8_READ(p)    *((const uint64_t *) (p))
-#define NATIVE8_READ(p)  *((const uint64_t *) (p))
 #endif
 /**/
 #define MSBF2_WRITE(p, v)    do { *((uint16_t *) (p)) = (v); } while (0)
 #define MSBF4_WRITE(p, v)    do { *((uint32_t *) (p)) = (v); } while (0)
-#define NATIVE2_WRITE(p, v)  do { *((uint16_t *) (p)) = (v); } while (0)
-#define NATIVE4_WRITE(p, v)  do { *((uint32_t *) (p)) = (v); } while (0)
 
 #if defined(SYS__64BIT)
 #define MSBF8_WRITE(p, v)    do { *((uint64_t *) (p)) = (v); } while (0)
-#define NATIVE8_WRITE(p, v)  do { *((uint64_t *) (p)) = (v); } while (0)
 #endif
 #endif     /* SYS__BIG_ENDIAN */
 
 #if defined(SYS__LITTLE_ENDIAN)
 #define LSBF2_READ(p)    *((const uint16_t *) (p))
 #define LSBF4_READ(p)    *((const uint32_t *) (p))
-#define NATIVE2_READ(p)  *((const uint16_t *) (p))
-#define NATIVE4_READ(p)  *((const uint32_t *) (p))
 
 #if defined(SYS__64BIT)
 #define LSBF8_READ(p)    *((const uint64_t *) (p))
-#define NATIVE8_READ(p)  *((const uint64_t *) (p))
 #endif
 /**/
 #define LSBF2_WRITE(p, v)    do { *((uint16_t *) (p)) = (v); } while (0)
 #define LSBF4_WRITE(p, v)    do { *((uint32_t *) (p)) = (v); } while (0)
-#define NATIVE2_WRITE(p, v)  do { *((uint16_t *) (p)) = (v); } while (0)
-#define NATIVE4_WRITE(p, v)  do { *((uint32_t *) (p)) = (v); } while (0)
 
 #if defined(SYS__64BIT)
 #define LSBF8_WRITE(p, v)    do { *((uint64_t *) (p)) = (v); } while (0)
-#define NATIVE8_WRITE(p, v)  do { *((uint64_t *) (p)) = (v); } while (0)
 #endif
 #endif     /* SYS__LITTLE_ENDIAN */
 #endif     /* SYS__UNALIGNED */
@@ -1268,8 +1113,6 @@
  *     and optimizing to bswap() etc. calls, if bytes are all accessed in
  *     sequence.  Equivalent formulations, such as 8 bytes == 2x4 bytes +shift
  *     may not get recognized (status as of 2014-02-26).
- *   - unspecified-endianness NATIVE2_READ etc. are mapped to their MSBF...
- *     equivalents, if neither NATIVE nor endianness has been defined previously
  */
 #if !defined(MSBF4_READ)
 #if defined(SYS__CC_GCC_COMPAT)
@@ -1357,22 +1200,6 @@ static INLINE void LSBF4_WRITE(void *p, uint32_t v)
 #endif         /* gcc-like */
 #endif
 
-#if !defined(NATIVE4_READ)
-#if defined(SYS_LITTLE_ENDIAN)
-#define NATIVE4_READ(p)  LSBF4_READ(p)
-#else
-#define NATIVE4_READ(p)  MSBF4_READ(p)
-#endif
-#endif
-
-#if !defined(NATIVE4_WRITE)
-#if defined(SYS_LITTLE_ENDIAN)
-#define NATIVE4_WRITE(p, v)  LSBF4_WRITE((p), (v))
-#else
-#define NATIVE4_WRITE(p, v)  MSBF4_WRITE((p), (v))
-#endif
-#endif
-
 
 /*-----  16-bit primitives  ------------------------------*/
 /* redundant casts of entire compound, already uint16_t, needed by
@@ -1406,22 +1233,6 @@ static INLINE void LSBF4_WRITE(void *p, uint32_t v)
             plocal[1] = (unsigned char) (((uint16_t) v) >>8); \
             plocal[0] = (unsigned char)  (v);                 \
         } while (0)
-#endif
-
-#if !defined(NATIVE2_READ)
-#if defined(SYS_LITTLE_ENDIAN)
-#define NATIVE2_READ(p)  LSBF2_READ(p)
-#else
-#define NATIVE2_READ(p)  MSBF2_READ(p)
-#endif
-#endif
-
-#if !defined(NATIVE2_WRITE)
-#if defined(SYS_LITTLE_ENDIAN)
-#define NATIVE2_WRITE(p, v)  LSBF2_WRITE((p), (v))
-#else
-#define NATIVE2_WRITE(p, v)  MSBF2_WRITE((p), (v))
-#endif
 #endif
 
 
@@ -1603,678 +1414,9 @@ static INLINE void LSBF8_WRITE(void *p, uint64_t v)
 #endif     /* gcc-like */
 #endif
 
-#if !defined(NATIVE8_READ)
-#if defined(SYS_LITTLE_ENDIAN)
-#define NATIVE8_READ(p)  LSBF4_READ(p)
-#else
-#define NATIVE8_READ(p)  MSBF4_READ(p)
-#endif
-#endif
-
-#if !defined(NATIVE8_WRITE)
-#if defined(SYS_LITTLE_ENDIAN)
-#define NATIVE8_WRITE(p, v)  LSBF8_WRITE((p), (v))
-#else
-#define NATIVE8_WRITE(p, v)  MSBF8_WRITE((p), (v))
-#endif
-#endif
-
 #define  SYS_64BIT  64
 #endif   /*---  64-bit versions  -------------------------------------------*/
 #endif   /*===  endianness conversion  =====================================*/
 
-
-#if defined(USE_ATOMIC_OPS)  /*=============================================*/
-/* add/subtract 16/32/64-bit base type
- *
- * we selectively define 64-bit types based on SYS_64BIT, so this section
- * must follow endianness-conversion (where it is defined, if applicable)
- *
- * _READ(...) is auto-defined as _ATOMIC_ADD(..., 0) by default.
- * Environment may define its own if simple/cheap memory barriers are
- * available, or not needed.
- *
- * reminder: detect GCC last, since some other compilers---such as xlc---report
- * GCC versions (i.e., __GNUC__), but may not support compatible atomic
- * intrinsics
- */
-#undef  USE_ATOMIC_OPS_ALIGNED
-#undef  USE_ATOMIC_OPS_APPROXIMATE
-#undef  USE_ATOMIC_TYPES
-#undef  U16_ATOMIC_NOT_AVAILABLE
-
-/* may be legitimately missing, see also: U16_ATOMIC_NOT_AVAILABLE */
-#undef  U16_ATOMIC_INIT
-#undef  U16_ATOMIC_ADD
-#undef  U16_ATOMIC_SUB
-#undef  U16_ATOMIC_READ
-/**/
-#undef  U32_ATOMIC_INIT
-#undef  U32_ATOMIC_ADD  /* use this symbol to prevent inclusion of subsequent */
-                        /* matched sections                                   */
-#undef  U32_ATOMIC_SUB
-#undef  U32_ATOMIC_READ
-/**/
-#undef  U64_ATOMIC_INIT
-#undef  U64_ATOMIC_ADD
-#undef  U64_ATOMIC_SUB
-#undef  U64_ATOMIC_READ
-
-/* by default, U<n>_ATOMIC_READ(...) is defined as U<n>_ATOMIC_ADD(..., 0) */
-/* provide platform/compiler alternative if a cheaper read barrier+read    */
-/* is available                                                            */
-
-
-#if defined(SYS__CC_TCC) && !defined(U32_ATOMIC_ADD) /*--- tcc -------------*/
-/* tcc lacks atomic intrinsics, must fall back to aligned variables
- * note: static-inline is supported by tcc (and 'inline' is understood)
- *       these function/macros are safe to declare within header
- */
-
-/* Atomic-add through memory mgmt: all modern architectures (i.e., everything
- * capable of running Linux as of 2014) perform add/subtract atomically
- * if the base variable is aligned.
- *
- * Update is still vulnerable to concurrent update between reading prev
- * and updating *ptr.
- *
- * We make no guarantees about alignment (i.e., checking pointers' LS bits)
- */
-static INLINE uint16_t u16__atomic_add(uint16_t *ptr, uint16_t val)
-{
-	uint16_t prev;
-
-	prev = *ptr;
-	*ptr += val;   /* atomic through memory mgmt side effect, if aligned */
-
-	return prev;
-}
-/**/
-#define  U16_ATOMIC_INIT(ptr, val) do { *(ptr) = (val); } while (0)
-#define  U16_ATOMIC_ADD(ptr, val)  u16__atomic_add((ptr),  (val))
-#define  U16_ATOMIC_SUB(ptr, val)  u16__atomic_add((ptr), -((uint16_t) (val)))
-
-/*-----------------------------------*/
-static INLINE uint32_t u32__atomic_add(uint32_t *ptr, uint32_t val)
-{
-	uint32_t prev;
-
-	prev = *ptr;
-	*ptr += val;   /* atomic through memory mgmt side effect, if aligned */
-
-	return prev;
-}
-/**/
-#define  U32_ATOMIC_INIT(ptr, val) do { *(ptr) = (val); } while (0)
-#define  U32_ATOMIC_ADD(ptr, val)  u32__atomic_add((ptr),  (val))
-#define  U32_ATOMIC_SUB(ptr, val)  u32__atomic_add((ptr), -((uint32_t) (val)))
-
-/*-----------------------------------*/
-#if defined(SYS_64BIT)
-static INLINE uint64_t u64__atomic_add(uint64_t *ptr, uint64_t val)
-{
-	uint64_t prev;
-
-	prev = *ptr;
-	*ptr += val;   /* atomic through memory mgmt side effect, if aligned */
-
-	return prev;
-}
-/**/
-#define  U64_ATOMIC_INIT(ptr, val) do { *(ptr) = (val); } while (0)
-#define  U64_ATOMIC_ADD(ptr, val)  u64__atomic_add((ptr),  (val))
-#define  U64_ATOMIC_SUB(ptr, val)  u64__atomic_add((ptr), -((uint64_t) (val)))
-#endif     /* SYS_64BIT */
-
-#define  USE_ATOMIC_OPS_ALIGNED  "tcc pseudo-atomics require aligned variables"
-#define  USE_ATOMIC_OPS_APPROXIMATE  "tcc: only pseudo-atomics"
-#endif    /*----  tcc  -----------------------------------------------------*/
-
-
-#if defined(SYS__CC_CLANG) && !defined(U32_ATOMIC_ADD) /*--- LLVM/clang ----*/
-/* note: detect before gcc, as clang may define GNUC values too */
-#if !__has_feature(c_atomic) && !__has_extension(c_atomic)
-#error "LLVM/clang without atomic-access capabilities"
-#endif
-
-/* fallback: let gcc/compatible atomics picked up */
-/* C11-compatible version below, currently unused */
-
-/* make sure this clang reports a ~compatible gcc version (4+) */
-#if !defined(__GNUC__) || (__GNUC__ < 4)
-#error "LLVM/clang detected, with unexpected gcc-compatibility claims"
-#endif
-
-#include <stdatomic.h>
-
-#define  ATOMIC_TYPE(t)    _Atomic(t)
-#define  USE_ATOMIC_TYPES  "clang, C11 stdatomic.h, _Atomic"
-
-#define  U16_ATOMIC_INIT(ptr, val) atomic_init((ptr), (val))
-#define  U16_ATOMIC_ADD(ptr, val)  atomic_fetch_add((ptr),  (val))
-#define  U16_ATOMIC_SUB(ptr, val)  atomic_fetch_add((ptr), -((uint16_t) val))
-/**/
-#define  U32_ATOMIC_INIT(ptr, val) atomic_init((ptr), (val))
-#define  U32_ATOMIC_ADD(ptr, val)  atomic_fetch_add((ptr),  (val))
-#define  U32_ATOMIC_SUB(ptr, val)  atomic_fetch_add((ptr), -((uint32_t) val))
-/**/
-#if defined(SYS_64BIT)
-#define  U64_ATOMIC_INIT(ptr, val) atomic_init((ptr), (val))
-#define  U64_ATOMIC_ADD(ptr, val)  atomic_fetch_add((ptr),  (val))
-#define  U64_ATOMIC_SUB(ptr, val)  atomic_fetch_add((ptr), -((uint64_t) val))
-#endif
-#endif    /*----  LLVM/clang  ----------------------------------------------*/
-
-
-#if defined(SYS__CC_XLC) && !defined(U32_ATOMIC_ADD) /*--- xlc -------------*/
-#if defined(SYS_IS_S390) && defined(__VM__)
-/* xlc on VM supported C++11 atomics in v2r1, and support has been removed
-  in v2r2.
- *
- * __COMPILER_VER__ 4[MVS], version1[1], release 11/2/...[0.B/0.C...]
- */
-#if (__COMPILER_VER__ == 0x410b0000)  /*-----  v2r1  -----------------------*/
-
-#define  U32_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U32_ATOMIC_ADD(ptr, val)   \
-                        __atomic_fetch_add((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U32_ATOMIC_SUB(ptr, val)   \
-                        __atomic_fetch_sub((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U32_ATOMIC_READ(ptr)     __atomic_load_n((ptr), __ATOMIC_SEQ_CST)
-
-#elif (__COMPILER_VER__ == 0x410c0000)  /*-----  v2r2  ---------------------*/
-static INLINE int __fetch_and_add32(uint32_t *ptr, int _AddValue)
-{
-	int _Old_Val = *(volatile int *) ptr;
-	int _Swap    = _Old_Val + _AddValue;
-
-	while (__cs((unsigned int *)&_Old_Val, (unsigned int *)ptr, _Swap)) {
-		_Swap = _Old_Val + _AddValue;
-	}
-
-	return (_Swap - _AddValue);
-}
-
-#define  U32_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U32_ATOMIC_ADD(ptr, val)   __atomic_fetch_add32((ptr),  (val))
-#define  U32_ATOMIC_SUB(ptr, val)   __atomic_fetch_add32((ptr), -(val))
-
-#else   /* unknown compiler/OS version */
-#error "unknown z/VM [atomic] setup, please contact us"
-
-#endif
-
-#elif defined(SYS_IS_S390)       /* non-VM S390 [MVS, z/VSE] */
-/* note: only atomic-add is provided, must build subtract
- * TODO: check with ICSF for currency [2016-11]
- */
-#define  U16_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U16_ATOMIC_ADD(ptr, val)   __fetch_and_add((ptr),  (val))
-#define  U16_ATOMIC_SUB(ptr, val)   __fetch_and_add((ptr), -((uint16_t) val))
-/**/
-#define  U32_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U32_ATOMIC_ADD(ptr, val)   __fetch_and_add((ptr),  (val))
-#define  U32_ATOMIC_SUB(ptr, val)   __fetch_and_add((ptr), -((uint32_t) val))
-
-#if defined(SYS_64BIT)
-#define  U64_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-                          /* need uint64_t cast, since base xlc type is long */
-#define  U64_ATOMIC_ADD(ptr, val)  \
-        ((uint64_t) __fetch_and_addlp(((uint64_t *) (ptr)),  (val)))
-#define  U64_ATOMIC_SUB(ptr, val)  \
-        ((uint64_t) __fetch_and_addlp(((uint64_t *) (ptr)), -((uint64_t) val)))
-#endif    /* 64-bit */
-
-#define  USE_ATOMIC_OPS_ALIGNED  "xlc atomics require aligned variables"
-
-#else        /* !SYS_IS_S390 */
-#error "xlc, non-S390, lacks atomics: inconsistent setup, please contact us"
-
-#endif
-#endif    /*----  xlc w/o defined atomics  ---------------------------------*/
-
-
-#if defined(__GNUC__) && !defined(U32_ATOMIC_ADD) /*------------------------*/
-#if (__GNUC__ < 4)
-#error "we require GCC 4.X or later to provide atomic intrinsics"
-       /* note: even HSM SDKs have moved to gcc4.3+, as of 2014-08 */
-#endif
-
-/* gcc 4.6 or before uses __sync_fetch... etc.
- *     4.7+ adds __atomic_... inspired by C++11 atomic.h [not all platforms!]
- * see migration recommendations at gcc.gnu.org/wiki/Atomic/GCCMM
- *
- * gcc-specific atomics are polymorphic macros, no typing
- */
-#if (__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 7))
-
-/* lines intentionally right-aligned to make add/sub difference stand out */
-#define  U16_ATOMIC_INIT(ptr, val)      \
-                               __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U16_ATOMIC_ADD(ptr, val)      \
-                             __atomic_fetch_add((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U16_ATOMIC_SUB(ptr, val)      \
-                             __atomic_fetch_sub((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U16_ATOMIC_READ(ptr)          __atomic_load_n((ptr), __ATOMIC_SEQ_CST)
-/**/
-#define  U32_ATOMIC_INIT(ptr, val)      \
-                               __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U32_ATOMIC_ADD(ptr, val)      \
-                             __atomic_fetch_add((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U32_ATOMIC_SUB(ptr, val)      \
-                             __atomic_fetch_sub((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U32_ATOMIC_READ(ptr)          __atomic_load_n((ptr), __ATOMIC_SEQ_CST)
-
-#if defined(SYS_64BIT)
-#define  U64_ATOMIC_INIT(ptr, val)      \
-                               __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U64_ATOMIC_ADD(ptr, val)      \
-                             __atomic_fetch_add((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U64_ATOMIC_SUB(ptr, val)      \
-                             __atomic_fetch_sub((ptr), (val), __ATOMIC_SEQ_CST)
-#define  U64_ATOMIC_READ(ptr)          __atomic_load_n((ptr), __ATOMIC_SEQ_CST)
-#endif
-
-#else    /*----  pre-4.7, GCC extension form  ------------*/
-
-#define  U16_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U16_ATOMIC_ADD(ptr, val)   __sync_fetch_and_add((ptr), (val))
-#define  U16_ATOMIC_SUB(ptr, val)   __sync_fetch_and_sub((ptr), (val))
-/**/
-#define  U32_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U32_ATOMIC_ADD(ptr, val)   __sync_fetch_and_add((ptr), (val))
-#define  U32_ATOMIC_SUB(ptr, val)   __sync_fetch_and_sub((ptr), (val))
-
-#if defined(SYS_64BIT)
-#define  U64_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U64_ATOMIC_ADD(ptr, val)   __sync_fetch_and_add((ptr), (val))
-#define  U64_ATOMIC_SUB(ptr, val)   __sync_fetch_and_sub((ptr), (val))
-#endif
-#endif     /* pre/post gcc v4.7 */
-#endif    /*----  gcc  -----------------------------------------------------*/
-
-
-#if defined(_WIN64) && !defined(U32_ATOMIC_ADD)  /*-------------------------*/
-
-/* note: Windows provides add-and-fetch etc., not fetch-and-add primitives
- * therefore, add-and-fetch+[then-subtract] == __sync_fetch_and_add(...)
- *
- * note: we document that repeated 'val' evaluation does not matter; wrap
- * in static-inline function to avoid that
- */
-#define  U32_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U32_ATOMIC_ADD(ptr, val)   (InterlockedAdd((ptr),    (val)) -(val))
-#define  U32_ATOMIC_SUB(ptr, val)   (InterlockedAdd((ptr),   -(val)) +(val))
-/**/
-#define  U64_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U64_ATOMIC_ADD(ptr, val)   (InterlockedAdd64((ptr),  (val)) -(val))
-#define  U64_ATOMIC_SUB(ptr, val)   (InterlockedAdd64((ptr), -(val)) +(val))
-
-#define  U16_ATOMIC_NOT_AVAILABLE  1         /* Win32: only 32/64-bit types */
-
-#endif    /*----  MS Visual C  ---------------------------------------------*/
-
-
-#if defined(_WIN32) && !defined(U32_ATOMIC_ADD)  /*-------------------------*/
-#define  U32_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U32_ATOMIC_ADD(ptr, val)   (InterlockedAdd((ptr),    (val)) -(val))
-#define  U32_ATOMIC_SUB(ptr, val)   (InterlockedAdd((ptr),   -(val)) +(val))
-/**/
-/* TODO: check or document if 64-bit [a] always available [b] may be fn def */
-#define  U64_ATOMIC_INIT(ptr, val)  do { *(ptr) = (val); } while (0)
-#define  U64_ATOMIC_ADD(ptr, val)   (InterlockedAdd64((ptr),  (val)) -(val))
-#define  U64_ATOMIC_SUB(ptr, val)   (InterlockedAdd64((ptr), -(val)) +(val))
-
-#define  U16_ATOMIC_NOT_AVAILABLE  1             /* only 32/64-bit types */
-#endif    /*----  MS Visual C  ---------------------------------------------*/
-
-
-#if !defined(U32_ATOMIC_ADD)
-#error "platform/compiler combination provides no atomic access"
-#endif
-
-#if !defined(U16_ATOMIC_ADD) && !defined(U16_ATOMIC_NOT_AVAILABLE)
-#define  U16_ATOMIC_NOT_AVAILABLE  1
-#endif
-
-/* note: may have defined ...ATOMIC_READ if separately available */
-
-#if !defined(U16_ATOMIC_READ)
-#define  U16_ATOMIC_READ(ptr)  U16_ATOMIC_ADD((ptr), 0)
-#endif
-
-#if !defined(U32_ATOMIC_READ)
-#define  U32_ATOMIC_READ(ptr)  U32_ATOMIC_ADD((ptr), 0)
-#endif
-
-#if !defined(U64_ATOMIC_READ) && defined(U64_ATOMIC_ADD)
-#define  U64_ATOMIC_READ(ptr)  U64_ATOMIC_ADD((ptr), 0)
-#endif
-
-#if !defined(ATOMIC_TYPE)
-#define  ATOMIC_TYPE(t)  t
-#endif
-
-#endif   /*===  USE_ATOMIC_OPS)  ===========================================*/
-
-
-#if defined(USE_HIGHRES_CLK)  /*============================================*/
-#if defined(NO_ARCH_DEPS)
-#error "high-resolution clocks are platform-dependent: remove NO_ARCH_DEPS"
-#endif
-
-#undef  SYS_HRCLOCK_BITS
-#undef  SYS_HRCLOCK
-	/* first matching architecture sets this
-	 * generally, do not expect multiple hits; breaking if encountered
-	 */
-
-/* note: checking for ..._BITS in the first case below is redundant
- * we acknowledge this, but retain it just in case sections are ever
- * rearranged
- */
-
-
-#if (32 <= SYS__X86_BITS)  /*-----  x86(64)  -------------------------------*/
-
-/* Intel compilers partially replicate intrinsics from each other, therefore
- * options are from specific to generic, stopping at first applicable
- *
- * preferred solution is rdtsc intrinsic; we do not currently use rdtscp,
- * which is only conditionally available
- */
-#undef  SYS__HAS_RDTSC
-
-/* does this environment provide "uint64_t __rdtsc(void) ;" as intrinsic ?
- * if so, include proper header, and define SYS__HAS_RDTSC
- *
- * gcc:       <x86intrin.h>,  added 2009-06-10
- * clang:     <x86intrin.h>,  available at least since 2012-07
- * icc:       <x86intrin.h>   SHOULD work; TODO: confirm minimum version
- * Visual C:  <intrin.h>,     rdtsc prototype identical
- *
- * not present:
- * tcc:   assume not present; MAY be provided by hosting gcc, not certain
- */
-#if defined(SYS__CC_GCC) || defined(SYS__CC_CLANG) || defined(SYS__CC_CC)
-#if !defined(SYS__HAS_RDTSC)
-/**/
-#define  SYS__HAS_RDTSC  "x86intrin.h"
-#include <x86intrin.h>
-#endif
-#endif
-
-#if defined(SYS__CC_MSVC) && !defined(SYS__HAS_RDTSC)
-#define  SYS__HAS_RDTSC  "intrin.h, Microsoft version"
-#include <intrin.h>
-#pragma  intrinsic(__rdtsc)   /* needed only on ancient Visual C */
-#endif
-
-/* ...any other rdtsc() intrinsic includes would come here... */
-
-#if defined(SYS__HAS_RDTSC) && !defined(SYS_HRCLOCK_BITS)  /*--- rdtsc -----*/
-
-static INLINE unsigned long SYS_HRCLOCK(void)
-{
-	return (unsigned long) __rdtsc();
-}
-
-	/* raw rdtsc is 64 bits; possibly truncated to ulong -> 'native' size */
-#define  SYS_HRCLOCK_BITS  SYS__X86_BITS
-
-#endif  /*----  /rdtsc, intrinsic  -----------------------------------------*/
-
-
-/* gcc-like, any non-intrinsic version through inline asm, such as tcc */
-
-#if defined(SYS__CC_GCC_COMPAT) && !defined(SYS_HRCLOCK_BITS)
-/* current x86 compilers all support the necessary inline assembler
- *
- * works on 32-bit as side effect, setting d to 0
- * all supported envs support static-inline 'macros', so no need for
- * point-macro-to-function indirection.
- */
-static INLINE unsigned long SYS_HRCLOCK(void)
-{
-	uint32_t a, d;
-
-	__asm__ volatile("rdtsc" : "=a" (a), "=d" (d));
-
-	return (unsigned long) (a | (((uint64_t) d) << 32));
-}
-
-#define  SYS_HRCLOCK_BITS  ((unsigned int) SYS__X86_BITS)
-#endif  /*-----  SYS__CC_GCC_COMPAT  ---------------------*/
-
-#endif  /*-----  x86 (32+ bits)  -------------------------------------------*/
-
-
-#if (32 <= SYS__S390_BITS)  /*----------------------------------------------*/
-
-/* S390: xlc first, then fall back to gcc-compatible inline/assembler
- * remember that xlc is ~gcc-compatible, so handle specific case first
- */
-#if defined(SYS__CC_XLC)  /*------------------------------------------------*/
-#if defined(SYS_HRCLOCK_BITS)
-#error "high-res clock: redundant/overlapping CPU/compiler setup (S390/xlc)"
-#endif
-
-static unsigned long sys__hrclock(void)
-{
-	unsigned long long clk;
-
-	__stck(&clk);
-
-	return (unsigned long) clk;
-}
-
-#define  SYS_HRCLOCK       sys__hrclock
-#define  SYS_HRCLOCK_BITS  ((unsigned int) SYS__S390_BITS)
-
-#endif  /*-----  xlc  ------------------------------------------------------*/
-
-#if defined(SYS__CC_GCC_COMPAT) && !defined(SYS_HRCLOCK_BITS)  /*-----------*/
-
-/* STCKE (store clock, extended):
- *  <00> <104-bit extended clock> <2-byte 'programmable'>
- *
- * MS 64 bits of extended clock are identical to STCK result
- * 'at some point' leading bit will start to contain non-00
- */
-static INLINE unsigned long SYS_HRCLOCK(void)
-{
-	unsigned char clkext[ 128 /8 ];
-
-	__asm__ __volatile__("stcke %0\n" : "=Q" (clkext) : : "cc");
-
-		/* equivalent to STCK 64 bits */
-	return (unsigned long) MSBF8_READ(&( clkext[1] ));
-
-/* pre-STCKE: 64-bit STCK; STCKE is recommended instead
- *	unsigned long clk;
- *
- *			Read TOD clock value
- *			no input, no clobber list
- *	__asm__ __volatile__("stck %0\n" : "=m" (clk) : );
- *	return clk;
- */
-}
-/**/
-#define  SYS_HRCLOCK_BITS  ((unsigned int) SYS__S390_BITS)
-
-#endif   /*----  SYS__CC_GCC_COMPAT  ---------------------------------------*/
-#endif  /*-----  S390 (all versions)  --------------------------------------*/
-
-
-#if (32 <= SYS__POWER_BITS)  /*---------------------------------------------*/
-#if defined(SYS__CC_XLC)          /* xlc: __mftb, __mftbu intrinsics */
-
-#define  SYS_HRCLOCK       __mftb
-#define  SYS_HRCLOCK_BITS  ((unsigned int) SYS__POWER_BITS)
-
-#elif defined(SYS__CC_GCC_COMPAT)            /* gcc/clang: mftb, inline asm */
-static INLINE unsigned long SYS_HRCLOCK(void)
-{
-	unsigned long lo;
-	__asm__ __volatile__("mftb %0\n" : "=r" (lo) : );
-	return (unsigned long) lo;
-}
-/**/
-#define  SYS_HRCLOCK_BITS  ((unsigned int) SYS__POWER_BITS)
-
-#else
-#error "Power/PPC: lacking mftb(cycle counter) definition"
-#endif
-#endif  /*-----  Power/PPC (all versions)  ---------------------------------*/
-
-
-#if (32 <= SYS__ARM_BITS)  /*-----------------------------------------------*/
-/* ARM generally needs to enable userspace access to perf counters
- * we need a portable way of doing this; note that most ARM platforms include
- * a kernel module to enable non-kernel access
- *
- * see neocontra.blogspot.ch/2013/05/user-mode-performance-counters-for.html
- * stackoverflow.com/questions/3247373/
- *     how-to-measure-program-execution-time-in-arm-cortex-a8-processor/
- *     3250835#3250835
- */
-#if defined(SYS__CC_GCC_COMPAT) && defined(__ARM_ARCH_7A__)
-static INLINE unsigned long SYS_HRCLOCK(void)
-{
-	uint64_t cval;
-
-	isb();
-	__asm__ __volatile__("mrs %0, cntvct_el0" : "=r" (cval));
-
-	return (unsigned long) cval;
-}
-/**/
-#define  SYS_HRCLOCK_BITS  ((unsigned int) SYS__ARM_BITS)
-
-#else         /* SYS__CC_GCC_COMPAT */
-#error "non-gcc(compatible) ARM: missing read-clock function"
-#endif  /* SYS__CC_GCC_COMPAT && __ARM_ARCH_7A__ */
-#endif  /*-----  ARM  ------------------------------------------------------*/
-
-
-#if !defined(SYS_HRCLOCK_BITS)
-#error "your platform lacks high-resolution clock accessor (or not known to us)"
-#endif
-#endif   /*===  USE_HIGHRES_CLK  ===========================================*/
-
-
-#if defined(USE_ARCH_STRENC)  /*============================================*/
-/* best-effort identification: see fine print at the top */
-#undef  SYS_IS_ASCII
-#undef  SYS_IS_EBCDIC
-
-#if (('a' == 0x61) && ('Z' == 0x5a) && ('9' == 0x39))
-#define SYS_IS_ASCII 1
-#endif
-
-#if (('a' == 0x81) && ('Z' == 0xe9) && ('9' == 0xf9))
-#define SYS_IS_EBCDIC 1
-#endif
-
-#if !defined(SYS_IS_ASCII) && !defined(SYS_IS_EBCDIC)
-#error "could not autodetect ASCII/EBCDIC setup"
-#endif
-
-/* not expected to hit this: proper constants above do not overlap
- * detect+report, just in case constants are messed up by accident
- */
-#if defined(SYS_IS_ASCII) && defined(SYS_IS_EBCDIC)
-#error "system detected as both ASCII and EBCDIC? (.h internal error!)"
-#endif
-
-#if !defined(SYS_IS_ASCII)
-#define SYS_IS_ASCII 0
-#endif
-
-#if !defined(SYS_IS_EBCDIC)
-#define SYS_IS_EBCDIC 0
-#endif
-
-#endif   /*===  USE_ARCH_STRENC  ===========================================*/
-
-
-#if defined(USE_ENV_DEFS)  /*===============================================*/
-#if defined(NO_ARCH_DEPS)
-#error "env definitions are platform-dependent: remove NO_ARCH_DEPS"
-#endif
-
-#if !defined(USE_PREARCH_DEPS)
-#undef SYS_IS_WINDOWS
-#undef SYS_IS_LINUX
-#undef SYS_IS_S390
-#undef SYS_IS_I390
-#undef SYS_IS_ZVM
-#undef SYS_IS_AIX
-#undef SYS_IS_POWER
-#undef SYS_IS_KERNEL
-#undef SYS_IS_MACOS
-#undef SYS_HAS_MMAP
-#endif     /* !USE_PREARCH_DEPS */
-
-/* expect env-specific main sections to be mutually exclusive
- * check for more specific things first [example: z/VM is expected to
- * inherit S390 defines, plus more, so check it first]
- */
-
-#if (SYS__WIN32_BITS == 32) || (SYS__WIN32_BITS == 64)
-#define  SYS_IS_WINDOWS  (SYS__WIN32_BITS)
-
-#elif defined(__linux__)                                            /* Linux */
-#define  SYS_IS_LINUX  1
-#if defined(__KERNEL__)
-#define  SYS_IS_KERNEL "Linux"
-#else
-#define  SYS_HAS_MMAP  1
-#endif
-
-#elif defined(__VM__) && defined(SYS__CC_XLC)              /* z/VM: xlc only */
-#define  SYS_IS_ZVM     32     /* assume 31/2-bit builds */
-
-#elif (SYS__S390_BITS == 32) || (SYS__S390_BITS == 64)               /* S390 */
-#define  SYS_IS_S390     (SYS__S390_BITS)
-#define  SYS_HAS_MMAP  1
-
-#elif defined(__MACH__) && defined(__APPLE__)
-#define  SYS_IS_MACOS  "Mac OS (no further sub-division)"
-#define  SYS_HAS_MMAP  1
-	/* see also TARGET_OS_MAC for selective non-embedded Mac OS envs */
-
-#elif defined(_AIX)                                                   /* AIX */
-#define  SYS_IS_AIX  1
-#if defined(__KERNEL__)
-#define  SYS_IS_KERNEL "AIX"  /* TODO: bitwidth spec */
-#else
-#define  SYS_HAS_MMAP  1
-#endif            /* KERNEL */
-#endif
-
-#if defined(SYS__S390_BITS) && defined(SYS__I390)
-#define  SYS_IS_I390  (SYS__S390_BITS)
-#endif
-
-#if !defined(SYS_IS_POWER) && defined(SYS__POWER_BITS)
-#define  SYS_IS_POWER  (SYS__POWER_BITS)
-#endif
-
-#define  SYS_WAS_DETECTED  1
-#endif   /*===  USE_ENV_DEFS  ==============================================*/
-
-
-#if defined(USE_128BIT_TYPES)  /*===========================================*/
-// availability subject to build-time presence of >u64
-#undef  HAS_128BIT_TYPE
-
-#if defined(__SIZEOF_INT128__)
-typedef unsigned uint128_t __attribute__((mode(TI)));
-#define  SYS_HAS_128BIT_TYPE  128
-#else
-#error "your env lacks 128-bit gcc/clang types"
-#endif
-#endif   /*===  /USE_ENV_DEFS  =============================================*/
 
 #endif      /* !defined(COMMON_BASE_H__) */
