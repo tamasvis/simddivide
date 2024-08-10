@@ -451,9 +451,11 @@ static const uint16_t firstprimes[ 3456 ] = {
 //
 #if defined(USE_SIMD)
 
-#if !defined(__GNUC__)
+#if !defined(__GNUC__) && !defined(__TINYC__)
 #error "make sure your compiler understands gcc alignment attributes"
 #endif
+//
+// we use tcc only to sanity-check, not for optimization
 
 static const
 __attribute__((aligned(64)))                   /* accommodate up to SIMD-512 */
