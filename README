@@ -1,0 +1,14 @@
+Dissassembled files from different platform/compiler combinations are
+under ```ref/```. The current list:
+
+- ```amd64-clang.s``` (AVX2)
+- ```amd64-gcc.s``` (AVX2)
+- ```arm64-clang.s``` (ARM Neon)
+- ```arm64-gcc.s``` (ARM Neon)
+
+Note that these files have been streamlined by removing certain
+lines from ```-ggdb```-equipped object files, built under ```-O3
+(platform-native)```, then disassembled. While we retain all assembler
+mnemonics, these minimized versions may not be reassembled. (See the
+.s0/s makefile targets for what is being removed.)
+
