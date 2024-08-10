@@ -16,8 +16,11 @@
 ## ID=
 
 
+## Tier 1 compilers to test for
+CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
+##
 ## compiler marker if its a known one (-gcc/-gclang...) or empty
-CCMARK := $(if $(filter gcc clang,$(CC)),-$(CC),)
+CCMARK  := $(if $(filter gcc clang tcc,$(CC)),-$(CC),)
 
 
 ## platform mnemonic, if known
@@ -47,13 +50,24 @@ COPT := $(OPTLEVEL) $(TUNE) $(PROF)
 
 
 ##--------------------------------------
+## some of the settings are not tcc-friendly
+## we only use tcc for baseline comparison; safe to skip features/switches
+##
+## mark such -...or.empty... as '...OR0'
+##
+Q_OR0 := $(if $(CCTIER1),-Q,)
+##
+ALL_OR0 := $(Q_OR0)
+
+
+##--------------------------------------
 ## marker for this setup
 MARK := $(PF)$(CCMARK)
 
 
 ##--------------------------------------
 simdprime$(MARK).o: simdprime.c $(wildcard *.h)
-	$(CC) $(CWARN) $(COPT) $(CSAN) -Q -v -o $@ -c $< |& \
+	$(CC) $(CWARN) $(COPT) $(CSAN) $(ALL_OR0) -v -o $@ -c $< |& \
 		tee simdprime$(MARK)-build.log
 
 ##--------------------------------------
