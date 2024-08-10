@@ -32,7 +32,8 @@ COPT := $(OPTLEVEL) $(TUNE) $(PROF)
 
 ##--------------------------------------
 simdprime$(CCMARK).o: simdprime.c $(wildcard *.h)
-	$(CC) $(CWARN) $(COPT) $(CSAN) -o $@ -c $<
+	$(CC) $(CWARN) $(COPT) $(CSAN) -Q -v -o $@ -c $< |& \
+		tee simdprime$(CCMARK)-build.log
 
 ##--------------------------------------
 ## full disassembled asm
@@ -78,13 +79,9 @@ simdprime$(CCMARK).s: simdprime$(CCMARK).s0
 
 ##--------------------------------------
 GEN   += simdprime*.o *.su
-CLEAN += simd*.s simd*.s0
-
-## $(CC) $CWARN0 $(MTUNE) -O3 -ggdb3 -Q -c simdprime$(ID).c |& \
-##   tee build$(ID).log && 
+CLEAN += simd*.s simd*.s0 simd*log
 ##
-## dis simdprime$(ID).o | tee simdprime$(ID).s0 &&
-##   unsrc simdprime$(ID).s0 | nosimd > simdprime$(ID).s
+## assume we wish to retain disassembly etc. as 'final output'
 
 
 ##--------------------------------------
