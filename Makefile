@@ -48,10 +48,16 @@ simdprime$(CCMARK).s0: simdprime$(CCMARK).o
 ## note: make quoting interferes with some of grep constructs ('()..')
 ##
 simdprime$(CCMARK).s: simdprime$(CCMARK).s0
-	grep -v -e ^/ -e '^[a-z].():$$' $< | \
+	grep -v -e ^/ -e '^[a-z].*[^a-z0-9]:$$' $< | \
 		grep -v -E '[0-9a-f]:.*R_(X86|AARCH)' | \
 	        expand | \
 		grep -v -E '  (00 )*[0-9a-f][0-9a-f] $$' > $@
+##
+## (1) file/function context, repated for most source lines:
+##       simd_no_spfactor64x16():
+##       /home/.../simdprime/simdprime.c:315
+##     note that plain-grep '()' interferes with makefile quoting,
+##     we just pick a 'close enough' pattern to remove
 ##
 ## (3) typical instruction-terminating straggler bytes:
 ##       ...
