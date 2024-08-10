@@ -6,14 +6,29 @@
 ##
 ## we mark generated disassembly with gcc/clang if those
 ## are set in $(CC).
+##
+## generated files are marked by -..arch..-..compiler.. by default.
+## TODO: add NOMARK
 
 ## AVX512
 ## -march=native -mtune=native
 ##
 ## ID=
 
-## compiler marker if its a known one
+
+## compiler marker if its a known one (-gcc/-gclang...) or empty
 CCMARK := $(if $(filter gcc clang,$(CC)),-$(CC),)
+
+
+## platform mnemonic, if known
+PLATFORM := $(filter x86_64 aarch64,$(shell uname -m))
+##
+PF.x86_64  := amd64
+PF.aarch64 := arm64
+PF := -$(PF.$(PLATFORM))
+##
+## TODO: stop here on unknown platforms (if PF==- by now)
+
 
 OPTLEVEL := -O3
 TUNE     := -march=native -mtune=native
@@ -30,15 +45,21 @@ CSAN := -fstack-usage
 
 COPT := $(OPTLEVEL) $(TUNE) $(PROF)
 
+
 ##--------------------------------------
-simdprime$(CCMARK).o: simdprime.c $(wildcard *.h)
+## marker for this setup
+MARK := $(PF)$(CCMARK)
+
+
+##--------------------------------------
+simdprime$(MARK).o: simdprime.c $(wildcard *.h)
 	$(CC) $(CWARN) $(COPT) $(CSAN) -Q -v -o $@ -c $< |& \
-		tee simdprime$(CCMARK)-build.log
+		tee simdprime$(MARK)-build.log
 
 ##--------------------------------------
 ## full disassembled asm
 ##
-simdprime$(CCMARK).s0: simdprime$(CCMARK).o
+simdprime$(MARK).s0: simdprime$(MARK).o
 	objdump -d -C -g -S -r -l -t $< > $@
 
 ##--------------------------------------
@@ -47,7 +68,7 @@ simdprime$(CCMARK).s0: simdprime$(CCMARK).o
 ##
 ## note: make quoting interferes with some of grep constructs ('()..')
 ##
-simdprime$(CCMARK).s: simdprime$(CCMARK).s0
+simdprime$(MARK).s: simdprime$(MARK).s0
 	grep -v -e ^/ -e '^[a-z].*[^a-z0-9]:$$' $< | \
 		grep -v -E '[0-9a-f]:.*R_(X86|AARCH)' | \
 	        expand | \
