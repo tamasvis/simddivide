@@ -6,7 +6,7 @@
 
 /* three prime-table sizes are predefined, with increasing
  * number of small primes:
- *   'S'  suitable for envs with fast modular exponentiation, such as 
+ *   'S'  suitable for envs with fast modular exponentiation, such as
  *        hardware security modules, or anything else with hw engines
  *   'M'  comparable to typical trial-division code, such as OpenSSL
  *   'L'  recommended for platforms with slow modular exponentiation,
@@ -333,8 +333,8 @@ static inline uint16_t le16mask(uint16_t a, uint16_t b)
 }
 
 
-/*-------------------------------------- 
- * v[] += (vector of) adv
+/*--------------------------------------
+ * v[] += (vector of) adv x 16
  */
 static inline
 REALLY_FORCE_INLINE
@@ -660,24 +660,45 @@ REALLY_FORCE_INLINE
 unsigned int simd_is_all0(const uint16_t v[16])
 {
 	return !memcmp(simd_allzero256bits, v, sizeof(simd_allzero256bits));
+}
 
+
+// note: zero-flag (ZF) checking for 256-bit wide SIMD units
+// above, we rely on the all-0 16x16-bit representation 
+//
+// there are equivalent intrinsics, or even the straightforward AND-all
+// of 16x16 bits may turn into a short construct. TBD
+//
 #if 0
 #if (SYS__X86_BITS >= 64)
 	return _mm256_testz_si256((const __m256i) *v, (const __m256i) *v);
+		// 
+		// compare-all-0 compiles into vpxor, vptest "close enough"
+
+#elif (SYS__AARCH >= 64)
+	return (vmaxvq_u16(v) == 0);
+		// MAX(..16x16 bits..); does not require use of all-0
+		// aux. register
+		//
+		// compiles into:
+		//     umaxv hd,vn.8h   "Unsigned Maximum across Vector"
+		//
+		// see developer.arm.com/architectures/instruction-sets/
+		//     intrinsics/vmaxvq_u16
 
 #elif (SYS__S390_BITS >= 64)
-#error "supply S390 check-ZF intrinsic here"
+#error "supply S390 check-ZF(compare-0) intrinsic here"
 
 #else
-	return !!((((v[  0 ] & v[  1 ]) & (v[  2 ] & v[  3 ]))  &
-	           ((v[  4 ] & v[  5 ]) & (v[  6 ] & v[  7 ]))) &
-	          (((v[  8 ] & v[  9 ]) & (v[ 10 ] & v[ 11 ]))  &
-	           ((v[ 12 ] & v[ 13 ]) & (v[ 14 ] & v[ 15 ]))));
+	return !!((((v[  0 ] | v[  1 ]) | (v[  2 ] | v[  3 ]))  &
+	           ((v[  4 ] | v[  5 ]) | (v[  6 ] | v[  7 ]))) &
+	          (((v[  8 ] | v[  9 ]) | (v[ 10 ] | v[ 11 ]))  &
+	           ((v[ 12 ] | v[ 13 ]) | (v[ 14 ] | v[ 15 ]))));
+		// note the 8x2 split
+		// expect to be specialized into faster-than-16x expression
 
 #endif
 #endif
-}
-
 #endif       // /256 bits
 
 
@@ -2047,7 +2068,7 @@ uint16_t simd_no_spfactor64x16(uint16_t tmp[ 64 ],
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_cmp16x16_twin(uint16_t   r[ 16 ], 
+void simd_cmp16x16_twin(uint16_t   r[ 16 ],
                         uint16_t tmp[ 16 ],
                   const uint16_t   u[ 16 ],
                   const uint16_t inv[ 16 ],
@@ -2369,20 +2390,6 @@ static inline struct PP_Mod16bit *pp_mod16_init0(struct PP_Mod16bit *ps)
 
 
 /*--------------------------------------
- * reduce Q mod prime[] array to mod-prime range
- */
-static inline void pp_mod16_mod_normalize(struct PP_Mod16bit *ps)
-{
-	if (ps) {
-		unsigned int i;
-
-		for (i=0; i<ARRAY_ELEMS(ps->modn); ++i)
-			ps->modn[i] %= firstprimes[i];
-	}
-}
-
-
-/*--------------------------------------
  * register 'current' into lsb[elems] at index 'wr' if possible
  * returns increased index
  */
@@ -2394,55 +2401,6 @@ static unsigned long report_current_lsb(uint64_t *lsb,    unsigned long elems,
 
 	return ++wr;
 }
-
-
-// TODO: rest of comments
-#if 0    //-----  Carmichael/3 search  ---------------------------------------
-/*-----------------------------------------
- * safe-prime search: can modn[] indicate a prime simultaneously
- * with 2*modn[]+1 also prime?
- */
-static inline
-REALLY_FORCE_INLINE
-/**/
-uint16_t simd_nofactor48x16(const uint16_t modn[48], const uint16_t inv[48],
-                           const uint16_t limit[48])
-{
-	uint16_t tmp[ 48 ];
-
-				// compute n * 1/prime  mod 2^16 products
-
-	simd_mul16x16(  tmp,        modn,        inv     );
-	simd_mul16x16(&(tmp[16]), &(modn[16]), &(inv[16]));
-	simd_mul16x16(&(tmp[32]), &(modn[32]), &(inv[32]));
-
-	simd_spcmp16x16(  tmp,        tmp,        inv,        limit     );
-	simd_spcmp16x16(&(tmp[16]), &(tmp[16]), &(inv[16]), &(limit[16]));
-	simd_spcmp16x16(&(tmp[32]), &(tmp[32]), &(inv[32]), &(limit[32]));
-
-	return simd_is_all0x48x16(tmp);
-}
-
-
-/*-----------------------------------------
- * v[] += adv; preserving mod-prime by subtracting m2r[] if applicable
- */
-static inline
-REALLY_FORCE_INLINE
-/**/
-void simd_advance48x16_m2r_inpl(uint16_t v[48], uint16_t adv,
-                           const uint16_t m2r[48])
-{
-	simd_advance16x16_inpl(  v,          adv       );
-	simd_m2range16x16_inpl(  v,          m2r       );
-
-	simd_advance16x16_inpl(&(v[ 16 ]),   adv       );
-	simd_m2range16x16_inpl(&(v[ 16 ]), &(m2r[ 16 ]));
-
-	simd_advance16x16_inpl(&(v[ 32 ]),   adv       );
-	simd_m2range16x16_inpl(&(v[ 32 ]), &(m2r[ 32 ]));
-}
-#endif   // 0
 
 
 /*--------------------------------------
@@ -2463,7 +2421,7 @@ static void scan_inherit_or0(struct PP_Mod16bit *dst,
 
 
 /*--------------------------------------
- * how much to advance from 6k+...mod6... to next possible prime?
+ * how much to advance from current 6k+...mod6... to next possible prime?
  */
 static unsigned int prime_mod6_advance(unsigned int mod6)
 {
@@ -2475,6 +2433,7 @@ static unsigned int prime_mod6_advance(unsigned int mod6)
 			return 1;         // 6k -> 6k+1  or  6k+4 -> 6k+5
 		case 2:
 			return 3;         // 6k+2 -> 6k+5
+
 		case 5:
 		case 1:                   // fallthrough
 		default:                  // fallthrough, in case your compiler
@@ -2560,34 +2519,6 @@ uint16_t simd_has_no_factor(uint16_t tmp[ 64 ],
 {
 	return (simd_nofactor_first(tmp, tm2, ps) &&
 	        simd_nofactor_rest_s(tmp, tm2, ps)) ;
-}
-
-
-//---------------------------------------
-static inline
-uint16_t simd_has_nofactor_rest_w(uint16_t tmp[ 64 ],
-                                  uint16_t tm2[ 64 ],
-                  const struct PP_Mod16bit *ps)
-{
-	switch (ps ? (ps->mode & SIMD_SEARCHTABLE_MASK) : 0) {
-#if !defined(NO_SIMDDIVIDE_L)
-	case SIMD_SEARCHTABLE_L:
-		return simd_nofactor_rest_l(tmp, tm2, ps);
-#endif
-
-#if !defined(NO_SIMDDIVIDE_M)
-	case SIMD_SEARCHTABLE_M:
-		return simd_nofactor_rest_m(tmp, tm2, ps);
-#endif
-
-#if !defined(NO_SIMDDIVIDE_S)
-	case SIMD_SEARCHTABLE_S:
-		return simd_nofactor_rest_s(tmp, tm2, ps);
-#endif
-
-	default:
-		return 0;
-	}
 }
 
 
@@ -2780,7 +2711,7 @@ uint64_t plain_advance_m(uint64_t *lsb, unsigned long count,
 	while (adv.wr < count) {                // invariant: candidate is 6k+1
 		adv.wr = simd_check_plain1_m(lsb, count, adv.wr,
 		                             adv.tmp, adv.tm2, dst);
-	
+
 		if (adv.wr < count) {
 			simd_advance_all(dst, 4);               // 6k+1 -> 6k+5
 
@@ -2816,7 +2747,7 @@ uint64_t plain_advance_l(uint64_t *lsb, unsigned long count,
 	while (adv.wr < count) {                    // invariant: candidate is 6k+1
 		adv.wr = simd_check_plain1_l(lsb, count, adv.wr,
 		                              adv.tmp, adv.tm2, dst);
-	
+
 		if (adv.wr < count) {
 			simd_advance_all(dst, 4);               // 6k+1 -> 6k+5
 
@@ -2856,6 +2787,8 @@ uint64_t plain_advance(uint64_t *lsb, unsigned long count,
 
 
 #if !defined(NO_SIMD_TWINPRIME) && !defined(NO_SIMD_SAFEPRIME)  //------------
+// shared code: twin primes, safe primes
+
 //--------------------------------------
 // both safe prime and twin-prime search is restricted to p=6k+5
 // advance to potential start position
@@ -3308,7 +3241,7 @@ uint64_t sfsieve_advance(uint64_t *lsb, unsigned long count,
 #endif   //-----  !NO_SIMD_SAFEPRIME)  ---------------------------------------
 
 
-#if 1
+#if 1  //=====  delimiter: standalone test code  =============================
 #define USE_OPENSSL
 
 /*--------------------------------------
@@ -3731,5 +3664,5 @@ int main(int argc, const char **argv)
 
 	return 0;
 }
-#endif   // delimiter:1
+#endif   //=====  /delimiter: standalone test code  ==========================
 
