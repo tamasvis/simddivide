@@ -4211,256 +4211,6 @@ uint64_t sfsieve_advance(uint64_t *lsb, unsigned long count,
 }
 #endif   //-----  !NO_SIMD_SAFEPRIME)  ---------------------------------------
 
-static void print186_1(const char *pfx, const uint16_t *p, unsigned int pcount,
-                       unsigned int printmodn)
-{
-	unsigned int i;
-
-	if (pfx)
-		printf("%s", pfx);
-
-	for (i=0; i<pcount; ++i) {
-		if (i==64)
-			printf("|");
-
-		printf("%s%u", i ? "," : "", (int) p[i]);
-	}
-	printf("\n");
-
-	if (printmodn) {
-		unsigned int minmod = ~((unsigned int) 0);
-
-		for (i=0; i<printmodn; ++i) {
-			if ((p[i] % firstprimes[i]) < minmod)
-				minmod = p[i] % firstprimes[i];
-		}
-
-		printf("#mod(prime)[min=%u]\n", minmod);
-
-		for (i=0; i<pcount; ++i)
-			printf("%s%u", i ? "," : "", (int) p[i] % firstprimes[i]);
-		printf("\n");
-	}
-}
-
-
-//----------------
-static void print186(const struct SIMD_Advance *adv,
-                      const struct PP_Mod16bit *dst,
-                                  unsigned int printmodn)
-{
-	printf("#adv=%lu\n" "#", adv->wr);
-
-// XXX
-	print186_1(NULL, dst->modn, 1856, printmodn);
-}
-
-
-/*--------------------------------------
- * register one increment by 2*p*q; LS bits, mod-6
- */
-static inline void incremental_advance_aux(struct PP_Mod16bit *ps)
-{
-	if (ps) {
-		ps->lsb  += ps->lsbi;
-		ps->mod6 += ps->mod6incr;
-		ps->mod6 %= 6;
-	}
-}
-
-
-/*--------------------------------------
- * list possible ls64(Q) of values where Q from a FIPS 186-x sequence
- * may be a prime (current as of FIPS 186-5)
- *
- * advances from 'src' to 'dst'
- *
- * if non-NULL, fill lsb[] with 'count' next lsb64(Q) values,
- * in increasing order.
- * NOTE: WE DO NOT TRACK WRAPAROUND AT 2^64 BOUNDARIES.
- *
- * NULL 'lsb' returns the next possible lsb64(Q), and advances 'dst'
- * to next possible candidate.
- *
- * returns the last lsb64(Q) enumerated.
- *
- * 'src' and 'dst' may be the same struct
- */
-// TODO: anywidth _aw
-uint64_t fips186_advance(uint64_t *lsb, unsigned long count,
-               struct PP_Mod16bit *dst,
-         const struct PP_Mod16bit *src)
-{
-	struct SIMD_Advance adv = SIMD_ADVANCE_INIT0;
-	uint64_t ctr = 0;
-
-	count = init_search(lsb, count, dst, src, SIMD_PRIMETYPE_FIPS186);
-	if (!count)
-		return 0;
-
-	if (!(SIMD_FIELDSET_INCR & dst->mode))
-		return cu_reportrc("FIPS 186-x search requires increment", 0);
-
-	if ((dst->mod6 != 1) && (dst->mod6 != 5))
-		return cu_reportrc("FIPS 186-x search base (mod 6) invalid", 0);
-			//
-			// 2 * (small) p1 * (small) p2; p1+p2 are primes
-			// 
-	if ((dst->mod6incr != 2) && (dst->mod6incr != 4))
-		return cu_reportrc("FIPS 186-x increment is invalid", 0);
-
-#if TRACE
-print186_1("#P0   ", dst->modn, 256, 576);
-print186_1("#incr ", dst->incr, 256, 0);
-#endif
-
-unsigned int rrr;
-	for (rrr=0; rrr<count; ++rrr) {
-		if (simd_nofactor_first(adv.tmp, adv.tm2, dst) &&
-		    simd_has_nofactor_rest_w(adv.tmp, adv.tm2, dst))
-		{
-printf("#LSB.P(..x%" PRIx64 ")[%u]\n", dst->lsb, rrr);
-print186(&adv, dst, 1);
-		}
-
-		simd_advance64x16_m2r_inpl_v(dst->modn, dst->incr,
-		                      firstprimes_mod2range_simd);
-
-		simd_advance_rest_v_aw(dst);
-
-		incremental_advance_aux(dst);
-#if 1 || TRACE
-printf("#adv=%u\n", rrr);
-print186(&adv, dst, 1);
-printf("#  lsb?(..x%" PRIx64 ")\n", dst->lsb);
-printf("## MOD.6++ %u\n", dst->mod6);
-printf("##\n");
-#endif
-	}
-
-// RRR: 0
-	while (0 && adv.wr < count) {
-		unsigned int adv1 = 0;
-// TODO: 64-prime %
-
-			// advance through any combination with factor
-			// in firstprimes[0..63] (5..317)
-			// no need to advance rest, just count how many
-			// were already caught as multiples of 5..317
-			//
-			// TODO: %
-#if TRACE
-printf("## MOD.6 %u(+%u)\n", dst->mod6, dst->mod6incr);
-// print186(&adv, dst, 1);
-#endif
-
-		while ((dst->mod6 == 3) ||
-		       !simd_nofactor_first(adv.tmp, adv.tm2, dst))
-		{
-#if TRACE
-printf("# mod6=%u\n", dst->mod6);
-if (dst->mod6 == 3) {
-	printf("#  lsb(3k)(..x%" PRIx64 ")\n", dst->lsb);
-} else {
-	printf("#  lsb(first64)(..x%" PRIx64 ")\n", dst->lsb);
-}
-print186(&adv, dst, 1);
-#endif
-			simd_advance64x16_m2r_inpl_v(dst->modn, dst->incr,
-			                      firstprimes_mod2range_simd);
-#if TRACE
-printf("#small.factor=%u\n", adv1);
-print186(&adv, dst, 0);
-#endif
-			incremental_advance_aux(dst);
-// TODO: factor out
-#if 0
-			dst->lsb  += dst->lsbi;
-			dst->mod6 += dst->mod6incr;
-			dst->mod6 %= 6;
-#endif
-			++adv1;
-			++ctr;
-#if TRACE
-printf("#  lsb?(..x%" PRIx64 ")\n", dst->lsb);
-printf("## MOD.6++ %u\n", dst->mod6);
-#endif
-		}
-#if TRACE
-printf("#pre.all(adv=%u)\n", adv1);
-printf("#lsb(..x%" PRIx64 ")[%u]\n", dst->lsb, adv1);
-#endif
-
-				// first 64 have been advanced 'adv1' times
-				// advance mod-firstprimes[64...] (331..)
-		if (adv1) {
-			unsigned int i;
-
-printf("#ADVANCE:%u\n", adv1);
-			for (i=0; i<adv1; ++i)
-{
-				simd_advance_rest_v_aw(dst);
-#if TRACE
-printf("#incr(%u)\n", i);
-print186(&adv, dst, 0);
-printf("#(/incr)\n");
-#endif
-}
-		}
-
-#if TRACE
-printf("#post.incr(adv=%u)\n", adv1);
-print186(&adv, dst, 1);
-printf("#/post.incr\n");
-#endif
-
-				// does any subsequent prime show a factor?
-				// each of these stages becomes considerably
-				// less probable
-				//
-		if (simd_has_nofactor_rest_w(adv.tmp, adv.tm2, dst))
-{
-printf("#LSB.P(..x%" PRIx64 ")[%u]\n", dst->lsb, adv1);
-print186(&adv, dst, 576);
-			adv.wr = report_current_lsb(lsb, count, ctr, adv.wr);
-}
-
-// TODO: size
-		++ctr;
-dst->lsb += dst->lsbi;
-//		state_advance_nr(dst, dst->lsbi);
-//		simd_advance_rest_v_aw(dst);
-
-#if TRACE
-printf("#small.factor=%u\n", adv1);
-print186(&adv, dst, 0);
-#endif
-
-		do {
-			simd_advance64x16_m2r_inpl_v(dst->modn, dst->incr,
-			                      firstprimes_mod2range_simd);
-			simd_advance_rest_v_aw(dst);
-
-			incremental_advance_aux(dst);
-#if 0
-			dst->lsb  += dst->lsbi;
-			dst->mod6 += dst->mod6incr;
-			dst->mod6 %= 6;
-#endif
-#if TRACE
-printf("## MOD.6++ %u\n", dst->mod6);
-#endif
-		} while (dst->mod6 == 3);
-#if TRACE
-printf("\n");
-#endif
-	}
-
-	wipe_advance_struct(&adv);
-
-	return ctr;
-}
-
 
 #if 1
 
@@ -4496,6 +4246,7 @@ static size_t callmode(struct PP_Mod16bit *ps, const char *base)
 			       : PP_MOD16_INVD_MODE;
 			skip = 2;
 			break;
+#if 0
 		case 'f':
 		case 'F':
 			mode = scolon_2nd
@@ -4503,6 +4254,7 @@ static size_t callmode(struct PP_Mod16bit *ps, const char *base)
 			       : PP_MOD16_INVD_MODE;
 			skip = 2;
 			break;
+#endif
 
 // TODO: non-default prefix for plain-prime search?
 		default:
@@ -4838,9 +4590,11 @@ int main(int argc, const char **argv)
 		return -1;
 	printf("## P0=%s\n", argv[0]);
 
+#if 0
 // TODO: centralized has-increment() etc. check
 	if ((argc > 1) && (SIMD_PRIMETYPE_FIPS186 & ps.mode))
 		printf("## INCR=%s\n", argv[1]);
+#endif
 
 	pcount = SF_TEST_UNITS;
 
@@ -4858,10 +4612,6 @@ int main(int argc, const char **argv)
 
 	if (getenv("TWIN") || (SIMD_PRIMETYPE_TWIN & ps.mode)) {
 		rc = twin_advance_w(possible, pcount, &ps, &ps);
-
-	} else if (SIMD_PRIMETYPE_FIPS186 & ps.mode) {
-pcount = 1000000;
-		rc = fips186_advance(possible, pcount, &ps, &ps);
 
 	} else if (getenv("PLAIN") || (SIMD_PRIMETYPE_PLAIN & ps.mode)) {
 pcount = 1000000;
