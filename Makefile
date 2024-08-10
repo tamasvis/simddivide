@@ -9,6 +9,23 @@
 ##
 ## ID=
 
+OPTLEVEL := -O3
+TUNE     := -march=native -mtune=native
+
+CWARN := -Wall -Wextra -Wshadow -Wformat=2 -Wredundant-decls \
+         -Wno-packed -Wnonnull -Winit-self -Wwrite-strings   \
+         -Werror=implicit-int -Werror=implicit-function-declaration \
+         -Werror=int-conversion -Werror=strict-prototypes \
+         -Werror=old-style-definition
+
+## sanitizers and related diags
+CSAN := -fstack-usage
+
+COPT := $(OPTLEVEL) $(TUNE)
+
+simdprime.o: simdprime.c $(wildcard *.h)
+	$(CC) $(CWARN) $(COPT) $(CSAN) -o $@ $<
+
 ## $(CC) $CWARN0 $(MTUNE) -O3 -ggdb3 -Q -c simdprime$(ID).c |& \
 ##   tee build$(ID).log && 
 ## dis simdprime$(ID).o | tee simdprime$(ID).s0 &&
