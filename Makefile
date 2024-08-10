@@ -7,6 +7,8 @@
 ## we mark generated disassembly with gcc/clang if those
 ## are set in $(CC).
 ##
+## set 'NOAVX512' to prevent use of AVX-512 (for AVX2 platforms)
+##
 ## generated files are marked by -..arch..-..compiler.. by default.
 ## TODO: add NOMARK
 
@@ -14,12 +16,16 @@
 ## -march=native -mtune=native
 ##
 ## ID=
+##
+## TODO: force AVX512 (arch=sapphirerapids)
+## TODO: ARM: switch between Neon, SVE/256 and SVE/512
 
 
 ## Tier 1 compilers to test for
 CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
 ##
 ## compiler marker if its a known one (-gcc/-gclang...) or empty
+## the ID we include in generated files' names
 CCMARK  := $(if $(filter gcc clang tcc,$(CC)),-$(CC),)
 
 
@@ -36,6 +42,7 @@ PF := -$(PF.$(PLATFORM))
 OPTLEVEL := -O3
 TUNE     := -march=native -mtune=native
 PROF     := -ggdb3
+
 
 CWARN := -Wall -Wextra -Wshadow -Wformat=2 -Wredundant-decls \
          -Wno-packed -Wnonnull -Winit-self -Wwrite-strings   \
@@ -55,9 +62,19 @@ COPT := $(OPTLEVEL) $(TUNE) $(PROF)
 ##
 ## mark such -...or.empty... as '...OR0'
 ##
-Q_OR0 := $(if $(CCTIER1),-Q,)
+Q_OR0        := $(if $(CCTIER1),-Q,)
 ##
-ALL_OR0 := $(Q_OR0)
+## note: set this after -mtune...
+NOAVX512_OR0 := $(if $(NOAVX512),-mno-avx512f)
+##
+## -mno-avx512f  -- 'AVX-512 Foundation' which disables the rest of AVX-512
+## see gcc.gnu.org/onlinedocs/gcc/x86-Options.html
+##
+## force AVX512:
+##   -march=graniterapids -mtune=graniterapids
+##
+## apply these only after setting anything system-specific
+ALL_OR0 := $(Q_OR0) $(NOAVX512_OR0)
 
 
 ##--------------------------------------
