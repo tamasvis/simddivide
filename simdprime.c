@@ -22,7 +22,12 @@
  *        (plain or FIPS 186 primes) XXX % slower, XXX % less mod.expn.
  *
  * can define NO_SIMDDIVIDE_S ..._M ..._L, respectively, to
- * prohibit specific sizes.
+ * prohibit specific sizes. Expect only S and L in practice: those
+ * with fast engines would prefer S; with SIMD-acceleration, the
+ * incremental time between M and L is expected to be ~neglicible. (The
+ * only practical reason for M is to achieve a small-factor-rejection
+ * ratio comparable to typical sw implementations which sieve with ~2k
+ * primes.)
  *
  * conditional-disable prime-search types:
  *    NO_SIMD_TWINPRIME
@@ -36,7 +41,6 @@
  *    PRIMES=...            -- nr. of primes to trial-divide against; must
  *                          -- be one of the S/M/L sizes compatible with
  *                          -- conditional-compiled restrictions
- *    LOG_ALL=...           -- do not trim even long lists
  */
 
 #if defined(NO_SIMDDIVIDE_S) && defined(NO_SIMDDIVIDE_M)
@@ -52,40 +56,37 @@
 #endif
 
 
-/*
- * hash together all divides-... checks:
- * <... previous sha256 ...>  <div-by-5?>  <div-by-7?> ...
- * initial hash is all-00
- */
-
-
 /*----------------------------------------------------------------------------
  * References
  *
- * Lemire, Keiser, Kurz:
- *   Faster remainder by direct computation; applications to compilers
- *   and software libraries
- *     2019-11
- *     arxiv.org/abs/1902.01961
- *   section 3.2, "Fast divisibility check with a single multiplication"
- *   (referencing Granlund, Montgomery)
- *
  * Granlund, Montgomery:
- *   Division by invariant integers using multiplication
- *     1994
- *     SIGPLAN Not. 1994(29)
- *   section 9, "Exact division by constants"
+ *     Division by invariant integers using multiplication
+ *       1994
+ *       SIGPLAN Not. 1994(29)
+ *     section 9, "Exact division by constants"
+ *
+ * Lemire, Keiser, Kurz:
+ *     Faster remainder by direct computation; applications to compilers
+ *     and software libraries
+ *       2019-11
+ *       arxiv.org/abs/1902.01961
+ *     section 3.2, "Fast divisibility check with a single multiplication"
+ *     (referencing Granlund, Montgomery)
+ * Note that the direct-remainder method is not directly applicable to
+ * automatic SIMD-vectorization since it relies on different widths of
+ * multiplication.
  *--------------------------------------------------------------------------*/
 
 #if 0
 // safe primes:
-//   distribution if smallest factors in array [5..], grouped into
-//   units of 16; probability in parts-per-million
-//   (in other words, cumulative probability distribution of SIMD divisors
-//   falling in group N of 16x16 bits; 1: [5 .. 61], 2: [67 .. 139],
-//   3: [149 .. 229]...)
-// note: 3 is missing from list of small primes since safe-prime
-// search only considers 6k+5 candidates.
+//   distribution if smallest factors in array [5..], grouped into units
+//   of 16; probability of dividing an odd number in parts-per-million
+//   (in other words, cumulative probability distribution of SIMD
+//   divisors falling in group N of 16x16 bits; 1: [5 .. 61], 2: [67 ..
+//   139], 3: [149 .. 229]...)
+//
+// note: 3 is missing from list of small primes; we only try
+// feasible 'm' values for 6k+m. Divide-by-3 is never needed.
 //
 // 862418[16] 901666[32] 917172[48] 925968[64] 931856[80]
 // 936392[96] 940019[112] 943068[128] 945645[144] 947863[160]
@@ -119,11 +120,6 @@
 #include <stdio.h>
 #include <ctype.h>
 #include "common-base.h"
-
-#if defined(USE_CLIC)
-#include "clic.h"
-static void *dhpriv = NULL;
-#endif
 
 #define USE_HEX2BIN
 #define USE_HEXDUMP  -1   /* no wrap */
@@ -4213,7 +4209,6 @@ uint64_t sfsieve_advance(uint64_t *lsb, unsigned long count,
 
 
 #if 1
-
 #define USE_OPENSSL
 
 /*--------------------------------------
@@ -4503,7 +4498,7 @@ static uint64_t possible[ SF_TEST_UNITS ];
  */
 
 
-#if defined(USE_OPENSSL) || defined(USE_CLIC)
+#if defined(USE_OPENSSL)
 /*--------------------------------------
  * normalize u64[] to BE64[] in-place
  */
@@ -4518,17 +4513,11 @@ static void buffer2be64(uint64_t *p, unsigned int pn)
 		}
 	}
 }
-#endif  // USE_OPENSSL || USE_CLIC
+#endif  // USE_OPENSSL
 
 
 #if defined(USE_OPENSSL)  /*------------------------------------------------*/
 #include <openssl/evp.h>
-
-#if 0
-int EVP_Q_digest(OSSL_LIB_CTX *libctx, const char *name, const char *propq,
-                 const void *data, size_t datalen,
-                 unsigned char *md, size_t *mdlen);
-#endif
 
 
 //--------------------------------------
@@ -4539,7 +4528,7 @@ static void hash_buffer(uint64_t *p, unsigned int pn)
 {
 	if (p && pn) {
 		unsigned char h[ EVP_MAX_MD_SIZE ];
-		size_t hb;
+		size_t hb = sizeof(h);
 
 		buffer2be64(p, pn);       // in-place BE64() || with no padding
 
@@ -4547,27 +4536,6 @@ static void hash_buffer(uint64_t *p, unsigned int pn)
 	}
 }
 #endif    /*-----  USE_OPENSSL  --------------------------------------------*/
-
-
-#if defined(USE_CLIC)
-//--------------------------------------
-// serialize be64 increments in-place; hash entire stream
-// MAY change p[]
-//
-static void hash_buffer(uint64_t *p, unsigned int pn)
-{
-	if (p && pn) {
-		unsigned char h[ CLiC_DIGEST_MAX_SIZE ];
-		long rc;
-
-		buffer2be64(p, pn);
-
-		rc = CLiC_sha512(NULL, (const unsigned char *) p, pn*8, h);
-		if (rc > 0)
-			cu_hexprint("## HASH(STATE)=", h, rc);
-	}
-}
-#endif  /* defined(USE_CLIC) */
 
 
 //--------------------------------------
@@ -4614,7 +4582,6 @@ int main(int argc, const char **argv)
 		rc = twin_advance_w(possible, pcount, &ps, &ps);
 
 	} else if (getenv("PLAIN") || (SIMD_PRIMETYPE_PLAIN & ps.mode)) {
-pcount = 1000000;
 		rc = plain_advance(possible, pcount, &ps, &ps);
 
 	} else {
@@ -4646,6 +4613,7 @@ pcount = 1000000;
 			//
 			// essentially irrelevant for the 10K+ lists
 			// we use as benchmarks
+			//
 	if (possible[0] < possible[ pcount-1 ]) {
 		rc = possible[ pcount-1 ] - possible[0];
 
@@ -4663,5 +4631,5 @@ pcount = 1000000;
 
 	return 0;
 }
-#endif   // 1
+#endif   // delimiter:1
 

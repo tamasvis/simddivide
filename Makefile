@@ -44,10 +44,37 @@ simdprime$(CCMARK).s0: simdprime$(CCMARK).o
 ## minimized asm, removing some source references (-ggdb),
 ## relocation-only lines, and lines with instruction-trailing 00/01...
 ##
+## note: make quoting interferes with some of grep constructs ('()..')
+##
 simdprime$(CCMARK).s: simdprime$(CCMARK).s0
 	grep -v -e ^/ -e '^[a-z].():$$' $< | \
-		grep -v -E '[0-9a-f]:.*R_(X|AARCH)' | \
-		grep -v $'\t[0-9a-f][0-9a-f] $'     > $@
+		grep -v -E '[0-9a-f]:.*R_(X86|AARCH)' | \
+	        expand | \
+		grep -v -E '  (00 )*[0-9a-f][0-9a-f] $$' > $@
+##
+## (3) typical instruction-terminating straggler bytes:
+##       ...
+##       1ab5c:   c4 e2 65 00 05 00 00    vpshufb 0x0(%rip),%ymm3,%ymm0
+##       1ab63:   00 00  
+##       ...
+##       1ae48:   62 72 f5 49 66 35 00    vpblendmw 0x0(%rip),%zmm1,%zmm14{%k1}
+##       1ae4f:   00 00 00
+##       ...
+##         res[  0 ] = v[  0 ] * coeff[  0 ];
+##       2225f:   41 0f b7 87 80 07 00    movzwl 0x780(%r15),%eax
+##       22266:   00
+##       22267:   c5 fd 6f 05 00 00 00    vmovdqa 0x0(%rip),%ymm0
+##       2226e:   00
+##       ...
+##     note: with trailing whitespace:
+##       ...
+##       ^Ires[  0 ] = v[  0 ] * coeff[  0 ];$ 
+##         2225f:^I41 0f b7 87 80 07 00 ^Imovzwl 0x780(%r15),%eax$
+##         22266:^I00 $ 
+##         22267:^Ic5 fd 6f 05 00 00 00 ^Ivmovdqa 0x0(%rip),%ymm0
+##         2226e:^I00 $
+##       ...
+
 
 ##--------------------------------------
 GEN   += simdprime*.o *.su
