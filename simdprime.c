@@ -130,8 +130,6 @@
 
 #include "common-prime-tools.h"
 
-#include "modred-carmichael.h"
-
 //--------------------------------------
 #define  PR64_RAW       0x80000000  /* no digit separator */
 #define  PR64_NO_LEAD0  0x40000000  /* trim leading zeroes except for 00 */
