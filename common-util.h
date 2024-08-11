@@ -23,12 +23,6 @@
  *   USE_U64DUMP      -- add bare-bones uint64-t-dump routine
  *   USE_HEX2BIN      -- add hexstring-to-binary converter
  *   USE_TIMEDIFF     -- add elapsed-time calculator
- *   USE_TESTFNS      -- typical functions used by testing: cu_memdiffer()
- *   USE_SLEEP        -- add sleep-delay function
- *                    -- note: MAY be unsuitable for non-console applications
- *                    -- on Win32 and Win64
- *                    -- see cu_usleep() description below
- *   USE_BITMASK      -- add bitmask-manipulating functions
  *   USE_READINT      -- minimal read-an-unsigned-integer function
  *   USE_WRITEINT     -- code to write decimals to memory without printf()
  *   USE_READALL      -- read or mmap a given file
@@ -37,7 +31,6 @@
  *                       _fast_ random-ish streams
  *                       suitable for fast sanity checks on PRF fields
  *   USE_MEMMGMT      -- error-reporting macros around malloc(3) and free(3)
- *   USE_THREADS      -- portable thread id support
  *   USE_UTIL_ALL     -- enable all of the above
  *
  * additional details
@@ -77,45 +70,6 @@
  *                    -- use cu_hexprint_all() otherwise.
  *                    --
  *
- *   void cu_u64print(const char *pfx, const uint64_t *p, unsigned int pn) ;
- *                    -- print an array of uint64t's without any formatting
- *
- *   under USE_TESTFNS:
- *   int cu_memdiffer(const void *r1, size_t r1len,
- *                    const void *r2, size_t r2len) ;
- *                    --   <-1  if r1len < r2len
- *                    --    -1  if lengths are equal and r1<r2
- *                    --     1  if lengths are equal and r1>r2
- *                    --    >1  if r2len < r1len
- *                    -- in other words, caller MUST correct lengths if
- *                    -- prefix matches are to be tolerated
- *                    -- arbitrary non-0 result if any of the inputs is NULL
- *
- *   size_t cu_arg2hex2bin(unsigned char *raw,     size_t maxrbytes,
- *                                   int argc, const char **argv,
- *                            const char *prefix) ;
- *                    -- retrieve parameters of "...PRM...=<...hex data...>"
- *                    -- in binary form into (raw, maxrbytes)
- *                    --
- *                    -- 'prefix' includes entire 0-terminated "..PRM..="
- *                    --
- *                    --  returns 0  if not found
- *                    --         >0  if found, 1+number of bytes written to
- *                    --             start of (raw, maxrbytes)
- *                    --         ~0  if parsing failed incl. oversized input
- *
- *   void *cu_testpattern(void *t, size_t tlen, unsigned int type) ;
- *                    -- fill (t, tlen) with one of predefined test patterns
- *                    -- passes through 't'
- *                    --
- *                    -- defines CU_TESTPATTERN_BYTES as a [stack-reasonable]
- *                    -- constant for a 'reasonably large' number of bytes,
- *                    -- f.ex. sufficiently large to test block-structured
- *                    -- algorithms' scanning different message sizes
- *                    --
- *                    -- value remains stable over time.  versioned,
- *                    -- different constants may be added in the future.
- *
  *   under USE_HEX2BIN:
  *   size_t cu_hex2bin(void *bin, size_t bbytes,
  *               const void *hex, size_t hbytes) ;
@@ -148,56 +102,6 @@
  *   int cu__time1ge2(const struct timespec *time1,
  *                    const struct timespec *time2) ;
  *
- *   under USE_SLEEP:
- *   void cu_usleep(unsigned int microsecs) ;
- *                    -- sleep-wait for the specified number of microseconds
- *                    -- over-second delays are allowed
- *                    --
- *                    -- delay MAY be approximate, if signals/etc. may interrupt
- *                    -- compensated for at best-effort basis
- *
- *   under USE_MEMMEM:
- *   void *cu_memmem(const void *buf, size_t blen,
- *                   const void *pat, size_t plen) ;
- *                    -- find the first instance of (pat, plen) in (buf, blen)
- *                    -- see memmem(3) in glibc docs for GNU prototype
- *
- *   under USE_BITMASK:
- *                    -- bitmasks are 0-based; left-to-right as bignumber
- *                    -- 0x80 of first byte:  bit #0
- *                    -- 0x40 of first byte:  bit #1
- *                    -- 0x80 of second byte: bit #8
- *
- *   unsigned int cu_bit_get(const unsigned char *bmask, size_t bmbytes,
- *                                  unsigned int zbit) ;
- *                    -- retrieve bit; tolerates out-of-bitmask index
- *
- *   under USE_SIPHASH:
- *   uint64_t cu_siphash(const unsigned char *in, size_t dbytes,
- *                       const unsigned char *key) ;
- *                    -- Siphash-2-4
- *                    -- tolerates NULL key; implies all-0 key if NULL
- *                    -- returns 0 if 'in' is NULL
- *
- *   under USE_SIPHASH and USE_SIPHASH_S:
- *   uint32_t cu_siphash_s(const unsigned char *in, size_t dbytes,
- *                         const unsigned char *key) ;
- *                    -- half-Siphash-2-4; for typical applications
- *                    -- where 32-bit result is sufficient
- *
- *   uint32_t cu_siphash_s32(uint64_t val, const unsigned char *key) ;
- *                    -- equivalent to cu_siphash_s(), specialized for up-to
- *                    -- 56-bit direct inputs. is in LS bytes of 'val',
- *                    -- the adjacent-higher byte MUST contain non-zero
- *                    -- (i.e., single-byte values are passed as 0x01..
- *                    -- to 0xff.. etc.)
- *
- *   under USE_GCD:
- *   unsigned int cu_gcd64_is_1(uint64_t a, uint64_t b) ;
- *                    -- call with odd b>1 and a<b
- *                    -- returns GCD(a,b) == 1?
- *                    -- SECURITY NOTE: data-dependent execution time
- *
  *   under USE_READINT:
  *   uint64_t cu_readuint(const char *val, size_t vbytes) ;
  *                    -- accepts pure-numeric (no whitespace etc.) strings
@@ -212,15 +116,8 @@
  *                    -- CONTINUE AT NEXT CHAR [i.e., find exact length first,
  *                    -- if processing slices of an all-numeric string]
  *                    --
- *                    -- NOTE: CHECKING FOR OVERFLOWS DURING CONVERSION
- *                    -- DEPENDS ON ERRNO, WHICH _MAY_ NOT BE THREADSAFE.
- *                    --
  *                    -- length-checking SHOULD be able to compensate, for
  *                    -- checking, if vbytes is known
- *
- *   under USE_WRITEINT:
- *   unsigned int cu_uint32digits(uint32_t x) ;
- *                    -- number of digits of without any leading zeroes.
  *
  * definitions, some optional if corresponding section has been enabled
  *   COMMON_UTIL_H__   -- unconditionally defined
