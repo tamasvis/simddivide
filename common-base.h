@@ -45,11 +45,6 @@
  *   ATTR_PURE__       -- pure func (stateless; evaluated without side effects)
  *   ATTR_CONST__      -- const func (pure + not reading any global variable)
  *   ATTR_UNUSED__     -- unused-function attribute (no warnings if not ref'd)
- *   ATTR_STATIC_INLINE__
- *                     -- attribute silencing warnings about static
- *                     -- AND inline 'function macros' not being referenced.
- *                     -- use this attribute only for such functions!
- *                     --   see background under 'compiler special cases' below
  *   ATTR_REALLY_INLINE__
  *                     -- the strongest 'force function to be inlined'
  *                     -- attribute definition.
@@ -60,14 +55,10 @@
  *   ATTR_NONNULLS__   -- none of the pointer arguments are NULL pointers
  *   ATTR_WARN_IF_UNUSED__
  *                     -- warning if return value is ignored
- *   ATTR_FORMAT__     -- mark function parameters as printf/scanf format
- *                     -- string +arguments
- *   ATTR_FORMAT_ARG__ -- mark argument as transformed printf/scanf fmt string
  *
  *     search for the following gcc attributes for clarification:
  *         __attribute__((NNN)), where NNN is: pure, const, unused, packed,
- *                               'nonnull x', nonnull, warn_unused_result,
- *                               'format(type, fmt, arg)', format_arg(arg)
+ *                               'nonnull x', nonnull, warn_unused_result
  *
  *   LIKELY(x)         -- likely path (expect to be taken)
  *   UNLIKELY(x)       -- unlikely......
@@ -113,10 +104,7 @@
  *
  *   unfortunately, while clang supports static+inline in a
  *   gcc-compatible way, it does report unreferenced static+inline
- *   functions with default settings (as of clang 3/4). at the same
- *   time, clang also reports gcc-like behaviour through defining
- *   __GNUC__, so we define ATTR_STATIC_INLINE__ to avoid
- *   clang-specific #ifdefs.
+ *   functions with default settings.
  *
  * see also:
  *   '[patch] compiler, clang: move inline definition to compiler-gcc.h'
@@ -274,8 +262,6 @@
 #define ATTR_CONST__    __attribute__ ((const))
 #define ATTR_UNUSED__   __attribute__ ((unused))
 #define ATTR_PACKED__   __attribute__ ((packed))
-#define ATTR_STATIC_INLINE__  __attribute__((unused))
-                                   /* not a typo, identical to ATTR_UNUSED__ */
 #define ATTR_REALLY_INLINE__  __attribute__((always_inline))
 #define LIKELY(x)       (__builtin_expect (!!(x), 1))
 #define UNLIKELY(x)     (__builtin_expect (!!(x), 0))
@@ -283,8 +269,6 @@
 #define ATTR_NONNULL__(x)      __attribute__ ((nonnull x))  /* specific prms */
 #define ATTR_NONNULLS__        __attribute__ ((nonnull))    /* no NULLs */
 #define ATTR_WARN_IF_UNUSED__  __attribute__ ((warn_unused_result))
-#define ATTR_FORMAT__(type, fmt, arg) __attribute__ ((format (type, fmt, arg)))
-#define ATTR_FORMAT_ARG__(arg)        __attribute__ ((format_arg (arg)))
 #endif     /* __GNUC__ */
 
 /* non-gcc equivalents of markers/attributes come here */
@@ -311,10 +295,6 @@
 #define ATTR_FALLTHROUGH__    /* missing fallthrough-marker attr   */
 #endif
 
-#if !defined(ATTR_STATIC_INLINE__)
-#define ATTR_STATIC_INLINE__  /* missing unused-static-inline attr */
-#endif
-
 #if !defined(ATTR_REALLY_INLINE__)
 #define ATTR_REALLY_INLINE__  /* missing force-really-inline attr */
 #endif
@@ -325,14 +305,6 @@
 
 #if !defined (ATTR_NONNULLS__)
 #define ATTR_NONNULLS__        /* missing non-NULLs attr */
-#endif
-
-#if !defined(ATTR_FORMAT__)
-#define ATTR_FORMAT__(type, fmt, arg)  /* format-string attr missing */
-#endif
-
-#if !defined(ATTR_FORMAT_ARG__)
-#define ATTR_FORMAT_ARG__(arg)         /* format-string attr missing */
 #endif
 
 #if !defined (ATTR_WARN_IF_UNUSED__)
