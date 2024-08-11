@@ -29,32 +29,14 @@
  *                    -- on Win32 and Win64
  *                    -- see cu_usleep() description below
  *   USE_BITMASK      -- add bitmask-manipulating functions
- *   USE_SIPHASH      -- add an implementation of Siphash-2-4, a fast PRF
- *                    -- currently restricted to 64-bit original only,
- *                    -- lacking 128-bit extended form
- *   USE_SIPHASH_S    -- enable Siphash-1-1, a round-reduced faster form,
- *                    -- which returns only a 32-bit value (but still suitable
- *                    -- for PRF-like qualities for short output)
- *   USE_GCD          -- word-sized GCD-related computation
  *   USE_READINT      -- minimal read-an-unsigned-integer function
  *   USE_WRITEINT     -- code to write decimals to memory without printf()
- *   USE_LOGARITHM    -- base 2 and base 10 logarithms
  *   USE_READALL      -- read or mmap a given file
- *   USE_GETOPT       -- option parser recognizing "--<...>" and "--no-<...>"
- *                    -- Booleans updating bitmasks stored as u64 arrays.
- *   USE_MEMMEM       -- portable wrapper for GNU-extension memmem(3),
- *                    -- 'search for buffer in memory'
  *   USE_STRINGFNS    -- portable UTF-8/native/etc. string functions
  *   USE_MIXER        -- non-cryptographic pseudorandom permutation for
  *                       _fast_ random-ish streams
- *   USE_BOOLE        -- reused Boolean/math primitives
- *   USE_SUMS         -- add 32-bit and 64-bit XOR-all macros
  *                       suitable for fast sanity checks on PRF fields
  *   USE_MEMMGMT      -- error-reporting macros around malloc(3) and free(3)
- *   USE_CONST2STR    -- constant-to-string tables; autodetecting the
- *                    -- following features [based on existing #define's]:
- *                    -- PKCS11, EP11, Clic
- *                    -- see alternative below if PKCS11 etc. .h's must follow
  *   USE_THREADS      -- portable thread id support
  *   USE_UTIL_ALL     -- enable all of the above
  *
@@ -88,29 +70,12 @@
  *                    -- stderr-logs, +syncs 'msg' if non-NULL and rc<0
  *                    -- passes through rc
  *                    -- NOP if USE_ERR_ANNOTATE<0 is defined when importing
- *   int cu_report_errno(void) ;
- *                    -- capture, report through cu_reportrc(), return errno
- *                    -- reads once, immediately: "assumed good-enough"
- *                    -- even if errno implementation is not threadsafe
- *                    -- (Glibc is, and C11 envs generally are, see errno(3))
- *   const char *cu_errorstr(int rc) ;
- *                    -- errno.h to symbolic English names (or 'UNKNOWN')
- *                    --
- *                    -- note that some values SHOULD be caught and reported
- *                    -- by a call-specific, more specialized lookup, as the
- *                    -- errno categorization is vague (or matches multiple
- *                    -- conditions).  search for EINVAL, and check error
- *                    -- conditions under open(2) which can return EINVAL,
- *                    -- for a representative example.
  *
  *   void cu_hexprint(const char *prefix, const void *data, size_t dbytes) ;
  *                    -- does not produce output without data; callers MUST
  *                    -- special-case their situations for missing/empty data,
  *                    -- use cu_hexprint_all() otherwise.
  *                    --
- *   void cu_hexprint_all(...) ;
- *                    -- cu_hexprint() variants which prints empty field
- *                    -- for missing/empty data.
  *
  *   void cu_u64print(const char *pfx, const uint64_t *p, unsigned int pn) ;
  *                    -- print an array of uint64t's without any formatting
@@ -188,9 +153,6 @@
  *                    -- sleep-wait for the specified number of microseconds
  *                    -- over-second delays are allowed
  *                    --
- *                    -- sleeping for 0 microsecs MAY yield to the scheduler
- *                    -- if platform supports it; see CU_USLEEP0_YIELDS
- *                    --
  *                    -- delay MAY be approximate, if signals/etc. may interrupt
  *                    -- compensated for at best-effort basis
  *
@@ -259,137 +221,10 @@
  *   under USE_WRITEINT:
  *   unsigned int cu_uint32digits(uint32_t x) ;
  *                    -- number of digits of without any leading zeroes.
- *   unsigned int cu_int_log2(uint32_t x) ;
- *       TODO: move/split into standalone USE_LOGARITHM
- *
- *   under USE_READALL:
- *   long cu_readall(const char *filename, const unsigned char **start,
- *                                                      size_t maxbytes) ;
- *                    -- returns -1 if call parameters were invalid
- *                    -- returns -2 if referenced file does not exist
- *                    -- returns -3 if creating mapping [reading etc.] failed
- *                    -- returns -4 if file exists, but exceeds bytecount limit
- *                    -- mapped bytecount available at *start (>=0) otherwise
- *                    -- supply "-" as a filename to read from stdin; caller
- *                    -- MUST filter if this special case is not allowed
- *                    --
- *                    -- maxbytes MAY be ignored, such as when reading does not
- *                    -- allocate memory [f.ex. when mmap() is used]. It limits
- *                    -- the number of bytes allowed, when >0
- *                    --
- *                    -- DO NOT free() RETURNED POINTER; use cu_releaseall()
- *
- *   long cu_releaseall(const unsigned char *start, size_t len) ;
- *                    -- call with start/bytecount returned by cu_readall()
- *
- *   under USE_MIXER:
- *   uint64_t cu_mix64(uint64_t seed) ;
- *   uint64_t cu_mix64b(uint64_t seed) ;
- *                    -- two different, comparable 64-bit mixers, both
- *                    -- permutations with good statistical properties
- *   uint32_t cu_mix32(uint32_t seed) ;
- *                    -- low-bias, NON-CRYPTOGRAPHIC permutation functions
- *                    -- over 2^64 or 2^32 elements
- *                    -- do not call them with 0 seed, since it is preserved
- *                    -- [by some of them]
- *
- *   under USE_SUMS:
- *   uint64_t cu_sum64(const void *buf, size_t bytes) ;
- *                    -- XORs together input in 8-byte units
- *                    -- quick-and-dirty check for PRF fields' integrity etc.
- *
- *   long cu_getopts(uint64_t *val,  unsigned int vcount,
- *       const struct CU_Opts *prms, unsigned int pcount,
- *                        int argc, const char **argv) ;
- *       see also: struct CU_Opts
- *           -- val[] is a bitmask formed from u64 words
- *           -- each entry in prms may specify an add/remove form
- *           --
- *           -- accept '--<prm>' or '--no-<prm>', depending on setup.
- *           -- all these options are Booleans, taking no additional
- *           -- parameters.
- *           -- updates vals[], an array of uint64 words:
- *           --
- *           -- 1) prm starting with "-" is matched as-is,
- *           --    adding/removing bits as specified in add/remove. If both
- *           --    are non-0, add takes precedence. To recognize and ignore
- *           --    an entry, just include it with 0/0 add/remove.
- *           -- 2) prm starting with any other character is accepted as
- *           --    "--<prm>" if present, and as "--no-<prm>" as a negative
- *           --    if the table contains "<prm>".
- *           -- 3) The value in 'prm' must terminate the compared string
- *           --    if pbytes is 0, and matches only exact number of bytes
- *           --    otherwise. In the latter case, entries should be ordered
- *           --    properly to accommodate prefixes (i.e., compare with
- *           --    longer strings first, then their prefixes).
- *           -- 4) entries with NULL prm are tolerated and ignored
- *           -- 5) add/remove bitmask apply to the same word, if applicable
- *                 (use the same CU_Opts .validx)
- *           -- 6) options (parameter strings) may repeat in the table;
- *           --    actions from all applicable entries are applied. Use
- *           --    this, for example, when an entry should clear/set
- *           --    multipe words in a multi-u64 bitmask.
- *           --
- *           -- returns >0  if matched at least one parameter; number of
- *           --             arguments consumed
- *           --         0   if no parameters are removed, or prm/args missing
- *           --             (callers are expected to filter the latter)
- *           --         <0  if matching failed: -1-based index of first
- *           --             rejected argument
- *
- *   under USE_STRINGFNS:
- *   size_t cu_is_newline(const void *str, size_t sbytes) ;
- *                    -- number of bytes at start of (str,sbytes) containing
- *                    -- a single UTF-8 newline; accepts Unix/Windows/MacOS
- *                    -- structures [at most a single newline]
- *                    -- 0 if str does not start with newline char(s), NULL etc.
- *
- *                    -- wrappers with identical prototypes
- *   void *cu_malloc(size_t size) ;
- *   void *cu_free(void *ptr) ;
- *   int cu_munmap(void *addr, size_t bytes) ;    -- if platforms supports mmap
- *
- *   under USE_CONST2STR:
- *
- *   PKCS11:
- *
- *   CU_PKCS11Cat_t is typedef with supported categories
- *   CU_PKCS11_CAT_[CKA | CKK | CKM | CKO | CKR]
- *
- *   const char *cu_pkcs2str(CU_PKCS11Cat_t category, CK_ULONG value) ;
- *                    -- map PKCS11 constants into native-encoded string
- *                    -- all supported constants are typedef'd onto CK_ULONG:
- *                    --   CK_FLAGS, CK_OBJECT_CLASS, CK_KEY_TYPE, CK_RV
- *                    --   CK_ATTRIBUTE_TYPE, CK_MECHANISM_TYPE
- *                    -- see pkcs11t.h
- *                    -- you may need to cast values if the compiler warns
- *                    -- about type-cast base types [not the case with default
- *                    -- pkcs11t.h, which just supplies 32-bit base constants]
- *                    --
- *                    -- CKF support intentionally missing: since these
- *                    -- bits are assigned in overlapping ranges, a single
- *                    -- function can not unambiguously decode them
- *                    --
- *                    -- returns "UNKNOWN" for unsupported entries
- *                    -- incl. unrecognized CK... categories
- *   wrapper macros:
- *       CU_PKCS11CKA_2STR(CK_ULONG cka) ;  -- CKA... attributes
- *       CU_PKCS11CKK_2STR(CK_ULONG ckk) ;  -- CKK... keytypes
- *       CU_PKCS11CKM_2STR(CK_ULONG ckm) ;  -- CKM... mechanism IDs
- *       CU_PKCS11CKO_2STR(CK_ULONG cko) ;  -- CKO... object classes
- *       CU_PKCS11CKR_2STR(CK_ULONG ckr) ;  -- CKR... return values
  *
  * definitions, some optional if corresponding section has been enabled
  *   COMMON_UTIL_H__   -- unconditionally defined
- *   CU_USLEEP0_YIELDS -- cu_usleep(0) signals yielding to scheduler
- *   CU_SIPHASH_BYTES  -- output bytecount if Siphash included
  *   CU_INVD_UINT64    -- uint64_t ret.value: parse failure from cu_readuint()
- *   CU_PKCS11CKR_2STR -- also ...CKA2STR etc.
- *                     -- defined if CONST2STR includes PKCS11 constant support
- *
- * string-related: defining both strings and single characters (...CH_...)
- *      CU_UTF8_CR, CU_UTF8CH_CR  -- carriage return, see also cu_is_newline()
- *      CU_UTF8_LF, CU_UTF8CH_LF  -- line feed, see also cu_is_newline()
  *
  * note that the defined values MAY be typed, therefore are not suitable for
  * preprocessor (value) comparisons
@@ -422,21 +257,11 @@
 #endif
 #endif           /* SYS__NEEDS_ENV */
 
-/* z/VM MUST rename this inclusion [beyond filename/format limit] */
 #include "common-base.h"
 
 
 /*-----  undefine everything conditionally-exported later  -----------------*/
-#undef  CU_SIPHASH_BYTES
 #undef  CU_INVD_UINT64
-#undef  CU_USLEEP0_YIELDS
-/**/
-/* const2str, PKCS11 section: */
-#undef  CU_PKCSCKA2STR
-#undef  CU_PKCSCKK2STR
-#undef  CU_PKCSCKM2STR
-#undef  CU_PKCSCKO2STR
-#undef  CU_PKCSCKR2STR
 
 /**/
 #undef  CU_UTF8_CR
@@ -471,56 +296,6 @@ static INLINE long cu_reportrc(const char *msg, long rc)
 	return rc;
 }
 #endif        /* USE_ERR_ANNOTATE <=> 0 */
-
-
-/*--------------------------------------
- * possibly ambiguous errno constants, which may require call-specific
- * lookups first, are listed second
- *
- * avoid strerror(3) esp. shared-string related headaches
- */
-static const char *cu_errorstr(int rc)
-{
-	switch (rc) {
-#if defined(EDQUOT)
-		/* missing on some platforms, f.ex. Win32 */
-	case EDQUOT:
-		return "disk quota exceeded [EDQUOT]" ;
-#endif
-	case EACCES:
-		return "resource access is prohibited [EACCES]" ;
-	case EEXIST:
-		return "resource exists, not allowed to replace [EEXIST]" ;
-	case ENAMETOOLONG:
-		return "file name over size limit [ENAMETOOLONG]" ;
-	case ENOMEM:
-		return "out of memory [ENOMEM]" ;
-
-	case ENFILE:
-		return "file table overflow [ENFILE]" ;
-	case EMFILE:
-		return "too many open files [EMFILE]" ;
-
-	/*----  these SHOULD be covered by call-specific LUT first  ---------*/
-
-	case EINVAL:
-		return "input-parameter combination is rejected [EINVAL]" ;
-
-	default:
-		return "UNKNOWN" ;
-	}
-}
-
-
-/*--------------------------------------
- * leave int/long truncation: gcc/clang/xlc ignores, but MSVC does not
- */
-static INLINE int cu_report_errno(void)
-{
-	int rc = errno;
-
-	return (int) cu_reportrc(cu_errorstr(rc), rc);
-}
 #endif  /*=====   USE_ERR_ANNOTATE || USE_UTIL_ALL  ========================*/
 
 
@@ -563,21 +338,6 @@ void cu_hexprint(const char *prefix, const void *data, size_t dbytes)
 		printf("\n");
 
 	MARK_UNUSED(org);
-}
-
-
-/*--------------------------------------
- * unlike _hexprint(), still outputs prefix with missing/empty data
- */
-static INLINE
-void cu_hexprint_all(const char *prefix, const void *data, size_t dbytes)
-{
-	if (!data || !dbytes) {
-		if (prefix)
-			printf("%s\n", prefix);
-	} else {
-		cu_hexprint(prefix, data, dbytes);
-	}
 }
 #endif  /*=====  USE_HEXDUMP || USE_UTIL_ALL  ==============================*/
 
@@ -673,38 +433,6 @@ size_t cu_hex2bin(void *bin, size_t bbytes, const void *hex, size_t hbytes)
 
 
 #if defined(USE_TIMEDIFF) || defined(USE_UTIL_ALL)  /*======================*/
-#include <sys/time.h>
-
-/*-------------------------------------
- * fill start/end with gettimeofday(&reg, NULL);
- *
- * note: POSIX.2008 deprecates gettimeofday(), migration to clock_gettime()
- *       check (1) if any of our implementations started reporting
- *             (2) discriminator which we can reliably use to distinguish
- */
-static INLINE
-float cu_msdelta(const struct timeval *start, const struct timeval *end)
-{
-	float d = 0.0;
-
-		/* (float) cast: warning about dropping (double)->(float) */
-		/* precision [clang]                                      */
-
-	if (start && end) {
-		if (0 < (timercmp(start, end, >))) {
-			d = (1000* (start->tv_sec - end->tv_sec)
-			     + (start->tv_usec - end->tv_usec) /(float) 1000.0);
-		} else {
-			d = (1000* (end->tv_sec - start->tv_sec)
-			     + (end->tv_usec - start->tv_usec) /(float) 1000.0);
-		}
-	}
-
-	return d;
-}
-
-
-/*----------------------------------*/
 #include <time.h>
 
 /*------------------------------------
@@ -732,7 +460,6 @@ int cu__time1ge2(const struct timespec *time1, const struct timespec *time2)
  * fill start/end with clock_gettime (CLOCK_THREAD_CPUTIME_ID, &...) ;
  *    CLOCK_THREAD_CPUTIME_ID:  Linux only, total thread time
  *    CLOCK_MONOTONIC:          recommended, POSIX-portable
- * see () macro
  */
 static INLINE
 float cu_msdelta2(const struct timespec *start, const struct timespec *end)
@@ -756,13 +483,6 @@ float cu_msdelta2(const struct timespec *start, const struct timespec *end)
 	return d;
 }
 
-
-/*------------------------------------*/
-static INLINE void cu_currtime(struct timespec *p)
-{
-	if (p)
-		clock_gettime(CLOCK_THREAD_CPUTIME_ID, p);
-}
 #endif  /*=====  USE_TIMEDIFF || USE_UTIL_ALL  =============================*/
 
 

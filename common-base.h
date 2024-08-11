@@ -23,118 +23,12 @@
  *
  *   NO_ARCH_DEPS     prevent auto-detection of CPU/endianness etc. by compiler
  *                    see also: interaction with USE_ENV_DEFS
- *   USE_PREARCH_DEPS do not undefine SYS_IS_... macros [see below]
- *   USE_ATOMIC_OPS   define system+compiler-specific atomic-operation macros
- *   USE_HIGHRES_CLK  add macro (inline fn) returning high-resolution timestamp
- *   USE_ARCH_STRENC  supply macros to autodetect native strings (ASCII/EBCDIC)
  *   USE_ENV_DEFS     add environment-specific SYS_... identifiers (list below)
  *                    (centralized macro set for OS/compiler/env detection)
- *   USE_128BIT_TYPES   define uint128_t or fail with build-time error
- *                      defines SYS_HAS_128BIT_TYPE if successful
  *
  * details:
  *   NO_ARCH_DEPS     prevent auto-detection of CPU/endianness etc. by compiler
  *                    supplies conservative defaults for all operations
- *
- *   USE_PREARCH_DEPS do not undefine SYS_IS_... macros, which are otherwise
- *                    cleared during the first inclusion. this option allows
- *                    us to pass predefined SYS_IS_... definitions through,
- *                    such as when cross-building [emulating SYS_IS_... values]
- *                    inconsistent SYS_IS_... settings may conflict, so use
- *                    this option at your own risk.
- *
- *   USE_ATOMIC_OPS  define system+compiler-specific atomic-op macros:
- *                   - fetch-and-add     16, 32 and 64-bit types
- *                   - substract-and-add 16, 32 and 64-bit types
- *                   - i.e., U<...>_ATOMIC_ADD, U<...>_ATOMIC_SUB,
- *                     U<...>_ATOMIC_READ and U<...>_ATOMIC_INIT
- *
- *         in environments where atomics are approximated through aligned
- *         primitive types synchronized access, we define:
- *             USE_ATOMIC_OPS_ALIGNED
- *         which callers SHOULD use to ensure their atomic vars are aligned.
- *         Callers can reject inclusion if they expect their platform to
- *         provide proper atomics (gcc, xlc platforms do).
- *
- *         Platforms MUST expect that repeated evaluations of 'val' are
- *         possible, and wrap ATOMIC_... invocations in [inline] functions
- *         where this may be a problem.
- *
- *         Atomic types may require modifiers; in such cases, we define
- *             USE_ATOMIC_TYPES
- *         In any case, ATOMIC_TYPE(...) is a macro supplying the atomic
- *         version of ...; it MAY be used to detect presence of atomic defs.
- *
- *         All platforms MUST provide 32-bit atomics; U32_ATOMIC_READ() MAY
- *         be used to detect support.  If 16-bit versions are not available,
- *             U16_ATOMIC_NOT_AVAILABLE
- *         is defined to >0, allowing callers to stop compilation.
- *
- *         atomic variables MAY be initialized to 0; for other
- *         initial values, use U<...>_ATOMIC_INIT macros. [if your
- *         implementation does not allow 0-initialization, please report
- *         as a bug: see initialization rules mandating explicit 0-init
- *         as legal: 7.17.2.1, 'Initialization: the ATOMIC_VAR_INIT
- *         macro', of C+11 9899:2011]
- *
- *         When we recognize a compiler without native atomic support, but
- *         may provided atomic updates (through updates to aligned variables),
- *         we define
- *             USE_ATOMIC_OPS_APPROXIMATE after inclusion. These
- *         approximate-atomics update variables safely---so they
- *         may, for example, control locked execution---but do not
- *         appropriately return proper previous values. Since we do not
- *         use these environments in production, only in certain tests,
- *         we do not intend to fix this. Callers who require atomic
- *         services may choose to reject the affected environments based
- *         on the presence of this macro.
- *
- *         Compilation stops if platform/compiler lacks atomic capabilities
- *         and they are requested.
- *
- *   USE_ARCH_STRENC supply auto-detection macros to detect architecture-native
- *                   string encoding. When requested, exactly one of the
- *                   following feature macros will be defined as non-zero
- *                   after including this header:
- *             SYS_IS_ASCII
- *             SYS_IS_EBCDIC
- *                   ...with exactly one non-zero, and one zero.
- *         The resulting fixed conditions are compile-time constants,
- *         and may be used to select with or without the preprocessor.
- *         With decent dead code elimination, their use is expected to
- *         produce no code for inactive conditional branches.
- *
- *         Note that the detection is assumed stable, regardless
- *         of locale etc. settings, but it assumes the native string encoding
- *         is 'sufficiently' ASCII/EBCDIC-like to detect reliably.
- *
- *         Specifically, we require 'a', 'Z', and '9' to appear in their
- *         expected positions. This holds for even codepage-adjusted ASCII
- *         and EBCDIC setups, to the best of our current knowledge.
- *
- *   USE_HIGHRES_CLK  add macro (inline fn) returning high-resolution timestamp
- *         defines the SYS_HRCLOCK, possibly an alias to a system-specific
- *         (inline) function, returning an unsigned long:
- *             unsigned long SYS_HRCLOCK(void) ;
- *
- *         Sets SYS_HRCLOCK_BITS to expected width of returned value;
- *         this value is always defined when a clock setup is found.
- *
- *         Do not depend on SYS_HRCLOCK being a macro: it may be a
- *         static (inline) function instead. All current targets are
- *         expected to transparently discard unreferenced static
- *         functions from header files; if you get an error, please
- *         contact us (or supress the compiler warning).
- *
- *         SYS_HRCLOCK_BITS is defined as 0 if ambiguous. This is always
- *         a macro, you may use it to conditionalize clock-using code.
- *         The value is cast to 'unsigned int' to break comparisons with
- *         negative values; unfortunately, this cast prevents its use
- *         in preprocessor conditionals (since they will not interpret
- *         typed constants).
- *
- *         Presence of USE_HIGHRES_CLK implies lack of NO_ARCH_DEPS;
- *         conflicting setup breaks compilation.
  *
  *   USE_ENV_DEFS     define environment-specific SYS_... identifiers
  *         SYS_IS_LINUX      defined >0 on Linux
@@ -158,7 +52,6 @@
  *
  *         Presence of USE_ENV_DEFS implies lack of NO_ARCH_DEPS;
  *         conflicting setup breaks compilation.
- *         See also: USE_PREARCH_DEPS
  *
  * COMMON_BASE_H__  is defined after inclusion
  */
@@ -179,13 +72,6 @@
  *                     -- the strongest 'force function to be inlined'
  *                     -- attribute definition.
  *   ATTR_PACKED__     -- packed (struct), no inter-field padding
- *   ATTR_FALLTHROUGH__
- *                     -- marker to insert after switch case to annotate
- *                     -- fall-through explicitly, preventing compiler/static
- *                     -- analyzer warnings.
- *                     -- this macro MUST be added where the missing break
- *                     -- would appear.
- *                     --   see under 'compiler special cases' below
  *
  *                     -- function/prototype annotations:
  *   ATTR_NONNULL__(x) -- pointer argument/s 'x' are non-NULL
@@ -215,47 +101,11 @@
  *                       no capabilities for PDP/mixed-endian environments
  *
  * endianness conversion: 16, 32, 64-bit variables with fixed endianness
- *   MSBF<n>_READ(p)       -- read <n> bytes as big-endian
  *   MSBF<n>_WRITE(p, v)   -- write v as <n>-byte big-endian
- *   LSBF<n>_READ(p)       -- read <n> bytes as little-endian
- *   LSBF<n>_WRITE(p, v)   -- write v as <n>-byte little-endian
- *   MSBF_READ(p, n)       -- read <n> bytes as big-endian to uint64 [up to 8]
- *   MSBF_WRITE(p, n, v)   -- write <n> bytes as big-endian [up to 8]
- *
- * 64-bit types are always defined, even if system is implied to be 32-bit.
- * Contact us if this creates a problem for your platform; all our current
- * targets supply 64-bit definitions.
- * note that these are either defined as macros, or static-inline functions,
- * depending on autodetected system config. [In other words, do not depend
- * on them being #defined(...) etc.]
- *
- * NONE OF THESE MACROS CHECK FOR NULL POINTER
- *
- * on platforms which do not penalize non-native alignment, these macros
- * MAY access multibyte units in non-aligned operations. These may trigger
- * undefined-behaviour sanitizer [ubsan] warnings.
- *
- * Note that the unit of these macros [bytes] differs from the unit
- * of atomic-access macros [bits] due to historical reasons.
  *
  * miscellaneous conversion
- *   STRINGIFY(s)      -- insert 's' as verbatim string (NOT ON WINDOWS)
- *   IS_POWER_OF_TWO   -- for any integer type; note: accepts 0
- *   BIT2BYTE
  *   ARRAY_ELEMS()     ## array element count
- *   ROUND_UP_UNIT(n, unit)   -- bytecount of minimum number of units >= N
  *   BUILD_ASSERT      ## stops compilation if condition is false
- *
- * atomic operations (see also: USE_ATOMIC_OPS)
- *    U<n>_ATOMIC_ADD (uint<n>_t *ptr, uint<n>_t value) ;  -- fetch-and-add
- *    U<n>_ATOMIC_SUB (uint<n>_t *ptr, uint<n>_t value) ;  -- fetch-and-subtract
- *                                     -- both return the _previous_ value
- *    U<n>_ATOMIC_READ(uint<n>_t *ptr)
- *      n is 16, 32 or 64 [bits]; latter conditional on SYS_64BIT
- *      all atomic-access ops return corresponding uint<n>_t type
- * value being added/subtracted MUST NOT trigger side effects when evaluated
- * (i.e., make sure it may be subtracted/added back safely, just in case
- * the atomic-access operation is invoked through a macro)
  */
 
 
@@ -298,36 +148,6 @@
  *   'Inline Functions In C', esp. section on static inline +gcc:
  *   www.greenend.org.uk/rjk/tech/inline.html
  *   accessed 2017-06-10
- *
- *--------------------------------------
- * fallthrough (ATTR_FALLTHROUGH__):
- *
- * static analyzers, and gcc7.0 [as of 2016-10] warn about fall-through
- * in switch statements. we provide the ATTR_FALLTHROUGH__ marker to
- * insert where the missing break statement would be. see the documentation
- * of -Wimplicit-fallthrough for further details; this usage as of
- * gcc7 matches static-analyzer equivalents.
- *
- * clang5 provides a compatible attribute. we expect to update these
- * definitions once the forms are standardized (expect gcc and clang to
- * converge with C+17, P0188R1)
- *
- * note that solutions/workarounds before the C+17-standardized
- * forms, which depend on structured comments, are only best-effort
- * approximations.
- *
- *   '-Wimplicit-fallthrough in GCC 7'
- *     developers.redhat.com/blog/2017/03/10/wimplicit-fallthrough-in-gcc-7/
- *     accessed 2017-06-10
- *     discussion of gcc/standard support of non-comment based annotations
- *
- *   'Bug 77817 - -Wimplicit-fallthrough: cpp directive renders FALLTHRU
- *   comment ineffective'
- *     gcc.gnu.org/bugzilla/show_bug.cgi?id=77817
- *     accessed 2017-06-10
- *     even if the bug resolution is effectively WONTFIX, discussion
- *     is informative. it provides some background on gcc implementation,
- *     shows some corner cases of related heuristics (and cases known to fail)
  */
 
 #include <stdio.h>        /* need size_t */
@@ -337,89 +157,7 @@
 #endif
 
 
-#if 1  /*=====  stdint.h and equivalents  ===================================*/
-/* systems without stdint.h: Solaris 9 or before, Windows
- * note that gcc/xlc provide stdint.h even in pre-C99 setups
- */
-/* note: Solaris 9- detection would come here, if ever needed: */
-/*       Solaris before 10 lacks C99 stdint.h                  */
-
-#if !defined(_WIN32) && !defined(_WIN64)  /*================================*/
-/* non-Windows: assume C99 POSIX stdint.h and inttypes.h are available */
-
-/* search for "S390, z/VM, xlc" for z/VM sys-definition logic
- * __VM__ is defined for all IBM z/VM builds [as of 2017-01]
- */
-#if !defined(UINT32_MAX) || !defined(PRIx32)
-                          /* were stdint.h and inttypes.h already included? */
-#if defined(__VM__) && defined(__IBMC__)
-#if !defined(__C99)
-#error "VM: ensure -qlanglvl=extc99 is used, or langlvl(extc99) pragma supplied"
-#error "[we intend to include stdint.h in C99 mode below]"
-#endif
-#endif
-/**/
-/* note on definitions: pre-C11, C++ (but not C) implementations MAY have
- * supplied definitions only if __STDC_LIMIT_MACROS, __STDC_CONSTANT_MACROS,
- * __STDC_FORMAT_MACROS etc. were defined before stdint.h inclusion.
- *
- * since this recommendation was not adopted even before C11, and
- * we already expect to be built in C, not C++ mode, we do not
- * supply any of these constants.
- */
-#include <stdint.h>         /* C99 uint<NNN>_t and relatives */
-#include <inttypes.h>       /* PRIx32 etc. */
-#endif      /* !UINT32_MAX !PRIx32 -> stdint/inttypes.h not seen previously */
-
-#else   /*===  WIN32/64  ===================================================*/
-
-#if !defined(uint16_t)
-#define uint16_t  unsigned __int16
-#endif
-#if !defined(uint32_t)
-#define uint32_t  unsigned __int32
-#endif
-#if !defined(uint64_t)
-#define uint64_t  unsigned __int64
-#endif
-
-	/* type-specific printf format macros from <inttypes.h> */
-	/* TODO: check Win32 vs. Win64 setup */
-#if !defined(PRIx16)
-#define PRIx16 "x"
-#endif
-#if !defined(PRIu16)
-#define PRIu16 "u"
-#endif
-
-#if !defined(PRIx32)
-#define PRIx32 "lx"
-#endif
-#if !defined(PRIu32)
-#define PRIu32 "lu"
-#endif
-
-#if !defined(PRIx64)
-#define PRIx64 "llx"
-#endif
-#if !defined(PRIu64)
-#define PRIu64 "llu"
-#endif
-
-#if !defined(UINT16_C)
-#define UINT16_C(v)  (v)
-#endif
-#if !defined(UINT32_C)
-#define UINT32_C(v)  (v##UL)
-#endif
-#if !defined(UINT64_C)
-#define UINT64_C(v)  (v##ULL)
-#endif
-#endif    /*  WIN32/64  */
-#endif    /*=====  stdint.h and equivalents  ===============================*/
-
-
-#if 1  /*=====  /compiler autodetection  ===================================*/
+#if 0  /*=====  /compiler autodetection  ===================================*/
 /* these definitions are used only as needed, so we do not break if
  * we could not infer exact setup. check for SYS__CC_FOUND if needed:
  * it is defined only when we have settled on a candidate.
@@ -988,38 +726,6 @@
 
 #endif   /*-----  IBMC/PPC  ------------------------------------------------*/
 
-
-#if defined(SYS__ARM_BITS)  /*----------------------------------------------*/
-#if (defined(__GNUC__) || defined(__EDG__))
-/* EDG SDKs feature gcc-compatible macros
- * we detect both ARM C lang.extn. (ACLE) and gcc(compatible) macros
- * ACLE refs below are to "ARM C language extensions v2.1" (2016)
- */
-
-#if defined(SYS__ARCH)
-#error "conflicting architecture found (ARM/gcc/EDG)"
-#endif
-
-#define  SYS__ARCH        "ARM, gcc/EDG"
-#define  SYS_IS_ARM       SYS__ARM_BITS
-
-/* [ACLE] 6.3, active indication of big-endian; default is little-endian */
-#if (__ARM_BIG_ENDIAN == 1)
-#define  SYS__BIG_ENDIAN     "ARM, gcc/EDG (ACLE define)"
-
-#elif defined(__BYTE_ORDER__) && (__ORDER_BIG_ENDIAN__ == __BYTE_ORDER__)
-#define  SYS__BIG_ENDIAN     "ARM, gcc/EDG (gcc-defined)"
-
-#else
-#define  SYS__LITTLE_ENDIAN  "ARM, gcc/EDG, not marked as big-endian"
-#endif
-
-#else
-#error "unknown ARM environment, please contact us"
-
-#endif   /*-----  GNUC/ACLE/EDG  -------------------------------------------*/
-#endif   /*-----  arm  -----------------------------------------------------*/
-
 /*---  end of env setups  ------------*/
 
 
@@ -1199,99 +905,6 @@ static INLINE void LSBF4_WRITE(void *p, uint32_t v)
         } while (0)
 #endif         /* gcc-like */
 #endif
-
-
-/*-----  16-bit primitives  ------------------------------*/
-/* redundant casts of entire compound, already uint16_t, needed by
- * HSM cross-compiler [gcc4.x], reporting conversions otherwise
- */
-#if !defined(MSBF2_READ)
-#define MSBF2_READ(p) (  (uint16_t)                                           \
-                      ((((uint16_t)  ((const unsigned char *)(p))[1])      ) |\
-                       (((uint16_t) (((const unsigned char *)(p))[0])) << 8) ))
-#endif
-
-#if !defined(LSBF2_READ)
-#define LSBF2_READ(p) (  (uint16_t)                                           \
-                      ((((uint16_t)  ((const unsigned char *)(p))[0])      ) |\
-                       (((uint16_t) (((const unsigned char *)(p))[1])) << 8) ))
-#endif
-
-#if !defined(MSBF2_WRITE)
-#define MSBF2_WRITE(p, v)  do { \
-            unsigned char *plocal = (unsigned char *) (p);    \
-                                                              \
-            plocal[0] = (unsigned char) (((uint16_t) v) >>8); \
-            plocal[1] = (unsigned char)  (v);                 \
-        } while (0)
-#endif
-
-#if !defined(LSBF2_WRITE)
-#define LSBF2_WRITE(p, v)  do { \
-            unsigned char *plocal = (unsigned char *) (p);    \
-                                                              \
-            plocal[1] = (unsigned char) (((uint16_t) v) >>8); \
-            plocal[0] = (unsigned char)  (v);                 \
-        } while (0)
-#endif
-
-
-/*------------------------------------*/
-static INLINE uint64_t MSBF_READ(const void *p, size_t n)
-{
-	const unsigned char *pb = (const unsigned char *) p;
-	uint64_t v = 0;
-
-	while (0 < n--) {
-		v <<= 8;
-		v +=  *(pb++);
-	}
-
-	return v;
-}
-
-
-/*------------------------------------*/
-static INLINE void MSBF_WRITE(void *p, size_t n, uint64_t val)
-{
-	unsigned char *pb = (unsigned char *) p;
-
-	pb += n;
-
-	while (0 < n--) {
-		*(--pb) = (unsigned char) val;
-		val >>= 8;
-	}
-}
-
-
-/*------------------------------------*/
-static INLINE uint64_t LSBF_READ(const void *p, size_t n)
-{
-	const unsigned char *pb = (const unsigned char *) p;
-	uint64_t v = 0;
-
-	pb += n;
-
-	while (0 < n--) {
-		v <<= 8;
-		v +=  *(--pb);
-	}
-
-	return v;
-}
-
-
-/*------------------------------------*/
-static INLINE void LSBF_WRITE(void *p, size_t n, uint64_t val)
-{
-	unsigned char *pb = (unsigned char *) p;
-
-	while (0 < n--) {
-		*(pb++) = (unsigned char) val;
-		val >>= 8;
-	}
-}
 
 
 #if defined(SYS__64BIT)  /*-----  64-bit only  -----------------------------*/

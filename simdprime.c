@@ -122,7 +122,6 @@
 #include "common-base.h"
 
 #define USE_HEX2BIN
-#define USE_HEXDUMP  -1   /* no wrap */
 #define USE_READINT
 #define USE_TIMEDIFF
 #define USE_ERR_ANNOTATE
