@@ -1,4 +1,4 @@
-/* the first N primes
+/* the first N (odd) primes
  * skipping 3 which is special-cased in all our prime searches
  *
  * first 1024 primes>3 are all <= 0x1fff
@@ -428,6 +428,9 @@ static const uint16_t firstprimes[ 3456 ] = {
 // /3456 (0x7e11); most 64-prime units with max(P) <= 0x7fff
 
 #if 0
+// these are still <= 0x7fff, but they are beyond 64-prime units
+// we use in our SIMD-friendly implementation
+
 	                                          32251, 32257,
 	32261, 32297, 32299, 32303, 32309, 32321, 32323, 32327,
 	32341, 32353, 32359, 32363, 32369, 32371, 32377, 32381,
@@ -445,7 +448,8 @@ static const uint16_t firstprimes[ 3456 ] = {
 //   1/(prime)  mod 2^16
 //   max(N)     mod 2^16, see Lemire citation
 //   x8000 reduction constant
-// same for 32-bit wide primitives if USE_SIMD_UNITS >= 32
+//      -> if value >= 0x8000, subtracting constant (1) gets back to
+//         [0, prime-1] (2) preserving mod-prime
 //
 // keep element counts identical; <= elem.count(firstprimes[])
 //
@@ -455,7 +459,8 @@ static const uint16_t firstprimes[ 3456 ] = {
 #error "make sure your compiler understands gcc alignment attributes"
 #endif
 //
-// we use tcc only to sanity-check, not for optimization
+// we use tcc only to sanity-check, not for optimization, but we
+// explicitly acknowledge tcc builds (which do not report gcc-compat)
 
 static const
 __attribute__((aligned(64)))                   /* accommodate up to SIMD-512 */
