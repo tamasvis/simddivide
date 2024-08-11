@@ -28,6 +28,9 @@ CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
 ## the ID we include in generated files' names
 CCMARK  := $(if $(filter gcc clang tcc,$(CC)),-$(CC),)
 
+ifeq ($(CC),cc)
+$(error "specify CC=gcc/clang/tcc...")
+endif
 
 ## platform mnemonic, if known
 PLATFORM := $(filter x86_64 aarch64,$(shell uname -m))
