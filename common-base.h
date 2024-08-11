@@ -33,25 +33,7 @@
  *   USE_ENV_DEFS     define environment-specific SYS_... identifiers
  *         SYS_IS_LINUX      defined >0 on Linux
  *         SYS_IS_S390       S390 or z/Architecture[=64] or 32-bit[=32]
- *         SYS_IS_I390       i390, mainframe firmware (between hypervisor
- *                           and millicode) control software; will also
- *                           set SYS_IS_S390
- *         SYS_IS_ZVM        z/VM, 31/64 bits, depending on autodetected bitsize
- *         SYS_IS_AIX        32/64, depending on autodetected bitsize
- *         SYS_IS_POWER      32/64, both Power and PowerPC
  *         SYS_IS_ARM        32/64
- *         SYS_IS_KERNEL     somewhat vaguely defined; assume OS/driver/etc.
- *                           level functionality. currently relevant for Linux
- *                           and AIX only
- *         SYS_IS_MACOS      Mac, OS X
- *         SYS_IS_WINDOWS    set if built under Win32[=32] or Win64[=64]
- *
- *                           capabilities (to centralize ifdef-jungles):
- *         SYS_HAS_MMAP      assume POSIX mmap is available
- *         SYS_WAS_DETECTED  defined in all cases
- *
- *         Presence of USE_ENV_DEFS implies lack of NO_ARCH_DEPS;
- *         conflicting setup breaks compilation.
  *
  * COMMON_BASE_H__  is defined after inclusion
  */
@@ -151,10 +133,6 @@
  */
 
 #include <stdio.h>        /* need size_t */
-
-#if defined(SYS_WAS_DETECTED)  /* will mark !NO_ARCH_DEPS */
-#undef  SYS_WAS_DETECTED
-#endif
 
 
 #if 0  /*=====  /compiler autodetection  ===================================*/
@@ -291,7 +269,7 @@
 
 
 /*-----  gcc or compatible  ------------------------------------------------*/
-#if (__GNUC__ >= 3)       /* note: pre-gcc3 support is basically irrelevant */
+#if (__GNUC__)       /* note: pre-gcc3 support is basically irrelevant */
 #define ATTR_PURE__     __attribute__ ((pure))
 #define ATTR_CONST__    __attribute__ ((const))
 #define ATTR_UNUSED__   __attribute__ ((unused))
@@ -302,55 +280,12 @@
 #define LIKELY(x)       (__builtin_expect (!!(x), 1))
 #define UNLIKELY(x)     (__builtin_expect (!!(x), 0))
 /**/
-#if (__GNUC__ > 3) || (__GNUC_MINOR__ >= 3)
 #define ATTR_NONNULL__(x)      __attribute__ ((nonnull x))  /* specific prms */
 #define ATTR_NONNULLS__        __attribute__ ((nonnull))    /* no NULLs */
 #define ATTR_WARN_IF_UNUSED__  __attribute__ ((warn_unused_result))
-#else
-/* unsupported by gcc<3.3; of historic interest only: gcc3.3.x release: 2005 */
-#define ATTR_NONNULL__(x)
-#define ATTR_NONNULLS__
-#define ATTR_WARN_IF_UNUSED__
-#endif
-
-#if (__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 6))
 #define ATTR_FORMAT__(type, fmt, arg) __attribute__ ((format (type, fmt, arg)))
 #define ATTR_FORMAT_ARG__(arg)        __attribute__ ((format_arg (arg)))
-#endif
-
-
-/* fall-through annotations are in flux, as of 2017-06, with the following
- * alternatives:
- *   - [[gnu::fallthrough]]  -- with gcc7.0 or higher, C+11 and C+14
- *   - [[fallthrough]]       -- C+17, P0188R1, draft 2016-02-29
- *   - __attribute__ ((fallthrough))   -- pre-C+11, gcc7.0 or above
- *
- * we use the gcc-portable form; revisit when C+17 compatibility picks up
- * see references in compiler-special rationale above
- *
- * keep conditional: pre-gcc check may have defined above
- */
-#if !defined(ATTR_FALLTHROUGH__)
-#if (__GNUC__ >= 7)
-#define  ATTR_FALLTHROUGH__  __attribute__ ((fallthrough))
-#else
-#define  ATTR_FALLTHROUGH__  /* gcc[compatible] missing fall-through marker */
-                             /* define empty to prevent any subsequent check */
-#endif        /* gcc >= 7 */
-#endif        /* !ATTR_FALLTHROUGH__ */
-
-
-/* gcc<=4.8 is not std conform in c11 mode -> does not support c11-atomics */
-/* but does also not set __STDC_NO_ATOMICS__                               */
-/* double check definition of __STDC_NO_ATOMICS__ because of clang compat  */
-/* mode and private fixes to older compilers                               */
-#if defined(__GNUC__) && ((__GNUC__ == 4 ) && (__GNUC_MINOR__ <= 8))
-#if !defined(__STDC_NO_ATOMICS__)
-#define __STDC_NO_ATOMICS__
-#endif
-#endif
-#endif          /* (gcc >= 3) */
-
+#endif     /* __GNUC__ */
 
 /* non-gcc equivalents of markers/attributes come here */
 
@@ -520,7 +455,6 @@
  * SYS__S390_BITS   >= 32   on mainframes (including z/Linux, MVS and z/VM)
  * SYS__POWER_BITS  >= 32   on Power and PPC
  * SYS__ARM_BITS    >= 32   on ARM variants (only certain architectures)
- * SYS__WIN32_BITS  >= 32   Windows or 64-bit Windows[=64]
  *
  * note that these options are not mutually exclusive (x86/Windows etc.)
  */
@@ -541,9 +475,7 @@
  **/
 #undef  SYS__X86_BITS
 #undef  SYS__S390_BITS
-#undef  SYS__I390       /* i390, special-cased within non-VM S390 builds */
 #undef  SYS__POWER_BITS
-#undef  SYS__WIN32_BITS
 #undef  SYS__ARM_BITS
 
 /* note that usage of __x86_64 vs. __x86_64__ is not consistent
@@ -568,16 +500,6 @@
 #if defined(__x86_64__)
 #define  SYS__X86_BITS  64   /* tcc, Intel x86/64, alternate define */
 #endif
-#endif
-
-#if defined(SYS__CC_TCC) && defined(_WIN64) && !defined(SYS__X86_BITS)
-#define  SYS__X86_BITS    64   /* Intel/Windows 64-bit, tcc */
-#define  SYS__WIN32_BITS  64
-#endif
-
-#if defined(SYS__CC_TCC) && defined(_WIN32) && !defined(SYS__X86_BITS)
-#define  SYS__X86_BITS    32   /* Intel/Windows non-64-bit, tcc */
-#define  SYS__WIN32_BITS  32
 #endif
 
 #if defined(_M_X64) && !defined(SYS__X86_BITS)
