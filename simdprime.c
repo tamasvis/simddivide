@@ -1,7 +1,9 @@
 /*------------------------------------------------------------------------
  * primality search: SIMD-friendly representation of trial divisions
  *------------------------------------------------------------------------
- *  Author: Tamas Visegrady  <tamas@visegrady.ch>
+ * SPDX: MIT
+ *------------------------------------------------------------------------
+ * Author: Tamas Visegrady  <tamas@visegrady.ch>
  *----------------------------------------------------------------------*/
 
 /* three prime-table sizes are predefined, with increasing
