@@ -1,0 +1,34 @@
+This is sample code showing base primitives of 'Portable, fully
+autovectorizable trial division implementations for efficient primality
+testing'. Minimal build setup is provided: we expect a minimal API
+and an essentially inlined version to be used by applications.
+
+This repository primarily shows how initial steps before more expensive
+primality tests may be essentially programmed in SIMD assembler from
+portable, standards-compliant C code. We show that minimal restraints
+on related data structures, and a few unintuitive choices of constants
+allow state-of-the-art compilers to recognize the core structures
+as SIMD-amenable. (Essentially, a few straightforward rules on data
+representations restrict inner loops such that any recent gcc/clang
+version vectorizes inner cores entirely.)
+
+Disassembled files from different platform/compiler combinations are
+under ```ref/```. The current list:
+
+- ```amd64-clang.s``` (AVX2)
+- ```amd64-gcc.s``` (AVX2)
+- ```amd64-avx512-clang.s``` (AVX512)
+- ```amd64-avx512-gcc.s``` (AVX512)
+- ```s390-clang.s``` (S390 Vector instructions)
+- ```s390-gcc.s``` (S390 Vector instructions)
+- ```arm64-clang.s``` (ARM Neon; 128-bit SIMD)
+- ```arm64-gcc.s``` (ARM Neon; 128-bit SIMD)
+- ```arm64sve-clang.s``` (ARM SVE; Scalable Vector Extension)
+- ```arm64sve-gcc.s``` (ARM SVE)
+
+Note that these files have been streamlined by removing certain
+lines from ```-ggdb```-equipped object files, built under ```-O3
+(platform-native)```, then disassembled. While we retain all assembler
+mnemonics, these minimized versions may not be reassembled. (See the
+.s0/s makefile targets for what is being removed.)
+

@@ -1,0 +1,11 @@
+*.o
+*.s
+*.s0
+*.S
+*.su
+*.log
+
+!ref/*.s
+
+tags
+cscope.out
