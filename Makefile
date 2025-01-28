@@ -23,7 +23,7 @@
 ##   use Neon:
 ##     ... -march=armv8-a+neon ...
 ##   force SVE:
-##     ... -march=armv8-a+sve ...
+##     ... -march=armv8-a+sve ...  (also: armv9-a+sve2)
 ##   SVE of specific bit width:
 ##     ... -msve-vector-bits=256 ...
 ##
@@ -34,6 +34,9 @@
 ##   see 'Port Code to Arm Scalable Vector Extension (SVE)' and
 ##   'Neon Programmer Guide for Armv8-A Coding for Neon' from Arm.
 ##   note that our loops are explicitly unrolled, so few real loops remain.
+##
+##   TODO: check 'aarch64-autovec-preference', which allows manual
+##   control of Neon/SVE preferences.
 
 ## Tier 1 compilers to test for
 CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
