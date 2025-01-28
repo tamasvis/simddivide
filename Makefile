@@ -18,8 +18,22 @@
 ## ID=
 ##
 ## TODO: force AVX512 (arch=sapphirerapids)
-## TODO: ARM: switch between Neon, SVE/256 and SVE/512
-
+##
+## ARM:
+##   use Neon:
+##     ... -march=armv8-a+neon ...
+##   force SVE:
+##     ... -march=armv8-a+sve ...
+##   SVE of specific bit width:
+##     ... -msve-vector-bits=256 ...
+##
+##   autovectorization is enabled with -O3.
+##   -fopt-info-vec returns which loops were vectorized.
+##   -fopt-info-vec-missed reports loops which failed to vectorize.
+##
+##   see 'Port Code to Arm Scalable Vector Extension (SVE)' and
+##   'Neon Programmer Guide for Armv8-A Coding for Neon' from Arm.
+##   note that our loops are explicitly unrolled, so few real loops remain.
 
 ## Tier 1 compilers to test for
 CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
@@ -73,7 +87,7 @@ NOAVX512_OR0 := $(if $(NOAVX512),-mno-avx512f)
 ## -mno-avx512f  -- 'AVX-512 Foundation' which disables the rest of AVX-512
 ## see gcc.gnu.org/onlinedocs/gcc/x86-Options.html
 ##
-## force AVX512:
+## force AVX512 (examples):
 ##   -march=graniterapids -mtune=graniterapids
 ##   -march=emeraldrapids -mtune=emeraldrapids
 ##
