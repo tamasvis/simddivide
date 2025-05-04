@@ -93,6 +93,9 @@ DISASM := objdump -d -C -g -S -r -l -t
 ## remove interleaved source-file markers
 UNSRC := grep -v -e ^/ -e '^[a-z].*[^a-z0-9]:$$'
 
+## drop all empty lines
+NWSPACE := grep .
+
 
 ##--------------------------------------
 ## some of the settings are not tcc-friendly
@@ -185,10 +188,7 @@ asm: simdprime$(MARK).s
 simdprime$(MARK)-fns.s: simdprime$(MARK).o
 	gdb -batch -ex "disassemble/rs sfsieve_advance_l" \
 		-ex "disassemble/rs twin_advance_l" $^ \
-			>  simdprime$(MARK)-fns.s
-##
-##	$(DISASM) --disassemble="sfsieve_advance_l" $^ | $(UNSRC)
-##	$(DISASM) --disassemble="twin_advance_l" $^ | $(UNSRC)
+			| $(NWSPACE) >  simdprime$(MARK)-fns.s
 
 
 asmfns: simdprime$(MARK)-fns.s
