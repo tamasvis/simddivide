@@ -11,6 +11,7 @@
 ##
 ## generated files are marked by -..arch..-..compiler.. by default.
 ## TODO: add NOMARK
+## note: clang/ARM (non-x86/non-RISC-V) does not support -march=native
 
 ## AVX512
 ## -march=native -mtune=native
@@ -49,7 +50,8 @@ ifeq ($(CC),cc)
 $(error "specify CC=gcc/clang/tcc...")
 endif
 
-## platform mnemonic, if known
+## platform mnemonic, if known; map to amd64/arm64
+##
 PLATFORM := $(filter x86_64 aarch64,$(shell uname -m))
 ##
 PF.x86_64  := amd64
@@ -60,10 +62,20 @@ PF := -$(PF.$(PLATFORM))
 
 
 OPTLEVEL := -O3
-TUNE     := -march=native -mtune=native
+TUNE     := -mtune=native
 PROF     := -ggdb3
 
 
+## ARCH: -march=...; conditionally supported
+BUILD_ARCH := -march=native
+##
+## special cases:
+##   -march=native is x86/riscv-only for clang
+BUILD_ARCH := $(ifeq $(CC)-$(PF),clang-arm64,$(BUILD_ARCH))
+
+
+## warnings supported by all our targeted gcc/clang versions
+##
 CWARN := -Wall -Wextra -Wshadow -Wformat=2 -Wredundant-decls \
          -Wno-packed -Wnonnull -Winit-self -Wwrite-strings   \
          -Werror=implicit-int -Werror=implicit-function-declaration \
@@ -73,7 +85,13 @@ CWARN := -Wall -Wextra -Wshadow -Wformat=2 -Wredundant-decls \
 ## sanitizers and related diags
 CSAN := -fstack-usage
 
-COPT := $(OPTLEVEL) $(TUNE) $(PROF)
+COPT := $(OPTLEVEL) $(TUNE) $(BUILD_ARCH) $(PROF)
+
+## verbose disassembly
+DISASM := objdump -d -C -g -S -r -l -t
+
+## remove interleaved source-file markers
+UNSRC := grep -v -e ^/ -e '^[a-z].*[^a-z0-9]:$$'
 
 
 ##--------------------------------------
@@ -82,7 +100,8 @@ COPT := $(OPTLEVEL) $(TUNE) $(PROF)
 ##
 ## mark such -...or.empty... as '...OR0'
 ##
-Q_OR0        := $(if $(CCTIER1),-Q,)
+## TODO: which non-x86 clang lacks -Q?
+Q_OR0 := $(if $(CCTIER1),-Q,)
 ##
 ## note: set this after -mtune...
 NOAVX512_OR0 := $(if $(NOAVX512),-mno-avx512f)
@@ -105,14 +124,14 @@ MARK := $(PF)$(CCMARK)
 
 ##--------------------------------------
 simdprime$(MARK).o: simdprime.c $(wildcard *.h)
-	$(CC) $(CWARN) $(COPT) $(CSAN) $(ALL_OR0) -v -o $@ -c $< |& \
+	$(CC) $(CWARN) $(COPT) $(CSAN) $(ALL_OR0) -v -o $@ -c $< | \
 		tee simdprime$(MARK)-build.log
 
 ##--------------------------------------
 ## full disassembled asm
 ##
 simdprime$(MARK).s0: simdprime$(MARK).o
-	objdump -d -C -g -S -r -l -t $< > $@
+	$(DISASM) $< > $@
 
 ##--------------------------------------
 ## minimized asm, removing some source references (-ggdb),
@@ -156,6 +175,25 @@ simdprime$(MARK).s: simdprime$(MARK).s0
 ##       ...
 
 
+## entire disassembled file
+asm: simdprime$(MARK).s
+
+
+## representative disassembled functions
+## generates simdprime$(MARK)-fns.s
+##:
+simdprime$(MARK)-fns.s: simdprime$(MARK).o
+	gdb -batch -ex "disassemble/rs sfsieve_advance_l" \
+		-ex "disassemble/rs twin_advance_l" $^ \
+			>  simdprime$(MARK)-fns.s
+##
+##	$(DISASM) --disassemble="sfsieve_advance_l" $^ | $(UNSRC)
+##	$(DISASM) --disassemble="twin_advance_l" $^ | $(UNSRC)
+
+
+asmfns: simdprime$(MARK)-fns.s
+
+
 ##--------------------------------------
 GEN   += simdprime*.o *.su
 CLEAN += simd*.s simd*.s0 simd*log
@@ -171,5 +209,5 @@ clean: tidy
 	$(if $(wildcard $(CLEAN)),$(RM) $(wildcard $(CLEAN))) 
 
 
-.PHONY: clean  tidy
+.PHONY: clean  tidy  asm  asmfns
 
