@@ -75,6 +75,11 @@ PROF     := -ggdb3
 BUILD_ARCH_AVX512 := -march=graniterapids
 TUNE_ARCH_AVX512  := -mtune=graniterapids
 ##
+BUILD_ARCH_AVX512 := \
+    $(ifeq $(CC),clang,-march=x86-64-v4,-march=x86-64-v4) \
+    -mavx10.1-512
+TUNE_ARCH_AVX512  :=
+##
 BUILD_ARCH := -march=native
 ##
 ## TODO:
@@ -200,6 +205,8 @@ asm: simdprime$(MARK).s
 ##:
 simdprime$(MARK)-fns.s: simdprime$(MARK).o
 	$(CC) --version >  $@
+	echo            >> $@
+	echo OPTIONS: $(OPTLEVEL) $(TUNE_ARCH) $(BUILD_ARCH) $(PROF)      >> $@
 	echo            >> $@
 	gdb -batch -ex "disassemble/rs sfsieve_advance_l" \
 		-ex "disassemble/rs twin_advance_l" $^ \
