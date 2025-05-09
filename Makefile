@@ -10,8 +10,9 @@
 ## set 'NOAVX512' to prevent use of AVX-512 (for AVX2 platforms)
 ##
 ## generated files are marked by -..arch..-..compiler.. by default.
+## build-identifying markers collected to 'MARK'
+##
 ## TODO: add NOMARK
-## note: clang/ARM (non-x86/non-RISC-V) does not support -march=native
 
 ## AVX512
 ## -march=native -mtune=native
@@ -38,6 +39,10 @@
 ##
 ##   TODO: check 'aarch64-autovec-preference', which allows manual
 ##   control of Neon/SVE preferences.
+
+## global marker; things to append in the end
+MARK     :=
+MARKPLUS := 
 
 ## Tier 1 compilers to test for
 CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
@@ -66,12 +71,20 @@ TUNE     := -mtune=native
 PROF     := -ggdb3
 
 
-## ARCH: -march=...; conditionally supported
+## pick up ARCH; we do not support all AVX/env combinations
+BUILD_ARCH_AVX512 := -march=graniterapids
+TUNE_ARCH_AVX512  := -mtune=graniterapids
+##
 BUILD_ARCH := -march=native
+##
+## TODO:
+BUILD_ARCH := $(BUILD_ARCH_AVX512)
+TUNE_ARCH  := $(TUNE_ARCH_AVX512)
+MARKPLUS   += -avx512
 ##
 ## special cases:
 ##   -march=native is x86/riscv-only for clang
-BUILD_ARCH := $(ifeq $(CC)-$(PF),clang-arm64,$(BUILD_ARCH))
+## BUILD_ARCH := $(ifeq $(CC)-$(PF),clang-arm64,,$(BUILD_ARCH))
 
 
 ## warnings supported by all our targeted gcc/clang versions
@@ -85,7 +98,7 @@ CWARN := -Wall -Wextra -Wshadow -Wformat=2 -Wredundant-decls \
 ## sanitizers and related diags
 CSAN := -fstack-usage
 
-COPT := $(OPTLEVEL) $(TUNE) $(BUILD_ARCH) $(PROF)
+COPT := $(OPTLEVEL) $(TUNE_ARCH) $(BUILD_ARCH) $(PROF)
 
 ## verbose disassembly
 DISASM := objdump -d -C -g -S -r -l -t
@@ -122,7 +135,7 @@ ALL_OR0 := $(Q_OR0) $(NOAVX512_OR0)
 
 ##--------------------------------------
 ## marker for this setup
-MARK := $(PF)$(CCMARK)
+MARK := $(PF)$(CCMARK)$(MARKPLUS)
 
 
 ##--------------------------------------
@@ -186,9 +199,11 @@ asm: simdprime$(MARK).s
 ## generates simdprime$(MARK)-fns.s
 ##:
 simdprime$(MARK)-fns.s: simdprime$(MARK).o
+	$(CC) --version >  $@
+	echo            >> $@
 	gdb -batch -ex "disassemble/rs sfsieve_advance_l" \
 		-ex "disassemble/rs twin_advance_l" $^ \
-			| $(NWSPACE) >  simdprime$(MARK)-fns.s
+			| $(NWSPACE) >> $@
 
 
 asmfns: simdprime$(MARK)-fns.s
