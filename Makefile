@@ -14,6 +14,7 @@
 ## WE DO NOT ATTEMPT TO AUTODETECT CONFIGURATION.
 ##
 ## set CC to gcc or clang to force specific compiler.
+## results are marked 'architecture-subvariant-compiler'
 
 
 ##-----  pick up BUILD_ARCH, TUNE_ARCH and DESCR for processor/instr.set
@@ -21,7 +22,7 @@
 ifeq ($(AVX),256)
 BUILD_ARCH := -march=x86-64-v2 -mno-avx512f -mavx2
 TUNE_ARCH  :=
-DESCR      := avx2
+DESCR      := amd64-avx2
 		## -mno-avx512f is redundant; it prohibits AVX-512 by ignoring
 		## the ..512f 'fundamental' instructions, which every other
 		## AVX-512 feature depends on 
@@ -30,8 +31,12 @@ DESCR      := avx2
 
 else ifeq ($(AVX),512)
 BUILD_ARCH := -march=x86-64-v4 -mavx10.1-512
+TUNE_ARCH  := -mtune=graniterapids
+##
+## TODO: tune?
 TUNE_ARCH  :=
-DESCR      := avx512
+DESCR      := amd64-avx512
+		## -mavx10.1-512 is deprecated by gcc15
 
 else ifeq ($(ARM),1)
 BUILD_ARCH := -march=armv8-a+simd
