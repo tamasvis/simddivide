@@ -34,15 +34,15 @@ TUNE_ARCH  :=
 DESCR      := avx512
 
 else ifeq ($(ARM),1)
-BUILD_ARCH := -march=armv8-a+neon
-TUNE_ARCH  := -mtune=armv8-a+neon
+BUILD_ARCH := -march=armv8-a+simd
+TUNE_ARCH  :=
 DESCR      := arm64-neon
 
 else ifeq ($(ARMSVE),1)
 $(error "ARM/SVE things come here")
-BUILD_ARCH := -march=armv8-a+neon
-TUNE_ARCH  := -mtune=armv8-a+neon
-DESCR      := arm64-neon
+BUILD_ARCH := -march=armv8-a+simd
+TUNE_ARCH  :=
+DESCR      := arm64-sve
 
 else
 $(error "environment not defined")
@@ -78,9 +78,8 @@ endif
 ##   TODO: check 'aarch64-autovec-preference', which allows manual
 ##   control of Neon/SVE preferences.
 
-## global marker; things to append in the end
+## global marker; DESCR is append in the end
 MARK     :=
-MARKPLUS := 
 
 ## Tier 1 compilers to test for
 CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
@@ -177,7 +176,7 @@ ALL_OR0 := $(Q_OR0) $(NOAVX512_OR0)
 
 ##--------------------------------------
 ## marker for this setup
-MARK := $(PF)$(CCMARK)$(MARKPLUS)
+MARK := $(PF)$(CCMARK)-$(DESCR)
 
 
 ##--------------------------------------
