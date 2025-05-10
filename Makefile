@@ -1,22 +1,60 @@
 ## Architecture control
 ##
-## set S390_256, AVX512, AVX256, ARM, ARM_SVE to force-select
-## S390, AVX-512, AVX2, ARM Neon or ARM SVE, respectively.  The
-## default is to use the current architecture (-mtune=native).
+## we force architecture to match one of the following predefined
+## configurations, by expecting one of the following env. variables:
+##     AVX=256    -- amd64, AVX2 (256-bit)
+##     AVX=512
+##     S390       -- SIMD extensions (256-bit)
+##     ARM        -- ARM64, Neon (128-bit)
+##     ARMSVE     -- ARM64, Scalable Vector Extensions
+##                -- =256 or =512 to force specific SVE bitwidth
 ##
-## we mark generated disassembly with gcc/clang if those
-## are set in $(CC).
+## please define exactly one; results when multiple are defined
+## are unpredictable.
+## WE DO NOT ATTEMPT TO AUTODETECT CONFIGURATION.
 ##
-## set 'NOAVX512' to prevent use of AVX-512 (for AVX2 platforms)
-##
-## generated files are marked by -..arch..-..compiler.. by default.
-## build-identifying markers collected to 'MARK'
-##
-## TODO: add NOMARK
+## set CC to gcc or clang to force specific compiler.
 
-## AVX512
-## -march=native -mtune=native
+
+##-----  pick up BUILD_ARCH, TUNE_ARCH and DESCR for processor/instr.set
 ##
+ifeq ($(AVX),256)
+BUILD_ARCH := -march=x86-64-v2 -mno-avx512f -mavx2
+TUNE_ARCH  :=
+DESCR      := avx2
+		## -mno-avx512f is redundant; it prohibits AVX-512 by ignoring
+		## the ..512f 'fundamental' instructions, which every other
+		## AVX-512 feature depends on 
+		##
+		## arch=x86-64-v2 applies generic tuning
+
+else ifeq ($(AVX),512)
+BUILD_ARCH := -march=x86-64-v4 -mavx10.1-512
+TUNE_ARCH  :=
+DESCR      := avx512
+
+else ifeq ($(ARM),1)
+BUILD_ARCH := -march=armv8-a+neon
+TUNE_ARCH  := -mtune=armv8-a+neon
+DESCR      := arm64-neon
+
+else ifeq ($(ARMSVE),1)
+$(error "ARM/SVE things come here")
+BUILD_ARCH := -march=armv8-a+neon
+TUNE_ARCH  := -mtune=armv8-a+neon
+DESCR      := arm64-neon
+
+else
+$(error "environment not defined")
+
+endif
+
+
+## special cases:
+##   -march=native is x86/riscv-only for clang
+## BUILD_ARCH := $(ifeq $(CC)-$(PF),clang-arm64,,$(BUILD_ARCH))
+
+
 ## ID=
 ##
 ## TODO: force AVX512 (arch=sapphirerapids)
@@ -55,41 +93,40 @@ ifeq ($(CC),cc)
 $(error "specify CC=gcc/clang/tcc...")
 endif
 
-## platform mnemonic, if known; map to amd64/arm64
-##
-PLATFORM := $(filter x86_64 aarch64,$(shell uname -m))
-##
-PF.x86_64  := amd64
-PF.aarch64 := arm64
-PF := -$(PF.$(PLATFORM))
-##
-## TODO: stop here on unknown platforms (if PF==- by now)
+## ## platform mnemonic, if known; map to amd64/arm64
+## ##
+## PLATFORM := $(filter x86_64 aarch64,$(shell uname -m))
+## ##
+## PF.x86_64  := amd64
+## PF.aarch64 := arm64
+## PF := -$(PF.$(PLATFORM))
+## ##
+## ## TODO: stop here on unknown platforms (if PF==- by now)
 
 
 OPTLEVEL := -O3
-TUNE     := -mtune=native
 PROF     := -ggdb3
 
 
-## pick up ARCH; we do not support all AVX/env combinations
-BUILD_ARCH_AVX512 := -march=graniterapids
-TUNE_ARCH_AVX512  := -mtune=graniterapids
-##
-BUILD_ARCH_AVX512 := \
-    $(ifeq $(CC),clang,-march=x86-64-v4,-march=x86-64-v4) \
-    -mavx10.1-512
-TUNE_ARCH_AVX512  :=
-##
-BUILD_ARCH := -march=native
-##
-## TODO:
-BUILD_ARCH := $(BUILD_ARCH_AVX512)
-TUNE_ARCH  := $(TUNE_ARCH_AVX512)
-MARKPLUS   += -avx512
-##
-## special cases:
-##   -march=native is x86/riscv-only for clang
-## BUILD_ARCH := $(ifeq $(CC)-$(PF),clang-arm64,,$(BUILD_ARCH))
+## ## pick up ARCH; we do not support all AVX/env combinations
+## BUILD_ARCH_AVX512 := -march=graniterapids
+## TUNE_ARCH_AVX512  := -mtune=graniterapids
+## ##
+## BUILD_ARCH_AVX512 := \
+##     $(ifeq $(CC),clang,-march=x86-64-v4,-march=x86-64-v4) \
+##     -mavx10.1-512
+## TUNE_ARCH_AVX512  :=
+## ##
+## BUILD_ARCH := -march=native
+## ##
+## ## TODO:
+## BUILD_ARCH := $(BUILD_ARCH_AVX512)
+## TUNE_ARCH  := $(TUNE_ARCH_AVX512)
+## MARKPLUS   += -avx512
+## ##
+## ## special cases:
+## ##   -march=native is x86/riscv-only for clang
+## ## BUILD_ARCH := $(ifeq $(CC)-$(PF),clang-arm64,,$(BUILD_ARCH))
 
 
 ## warnings supported by all our targeted gcc/clang versions
