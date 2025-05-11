@@ -30,10 +30,7 @@ DESCR      := amd64-avx2
 		## arch=x86-64-v2 applies generic tuning
 
 else ifeq ($(AVX),512)
-BUILD_ARCH := -march=x86-64-v4 -mavx10.1-512
-TUNE_ARCH  := -mtune=graniterapids
-##
-## TODO: tune?
+BUILD_ARCH := -march=x86-64-v4 -mavx10.2
 TUNE_ARCH  :=
 DESCR      := amd64-avx512
 		## -mavx10.1-512 is deprecated by gcc15
