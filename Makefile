@@ -178,7 +178,7 @@ ALL_OR0 := $(Q_OR0) $(NOAVX512_OR0)
 
 ##--------------------------------------
 ## marker for this setup
-MARK := $(PF)$(CCMARK)-$(DESCR)
+MARK := $(PF)-$(DESCR)$(CCMARK)
 
 
 ##--------------------------------------
