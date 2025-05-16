@@ -6,43 +6,37 @@
  * Author: Tamas Visegrady  <tamas@visegrady.ch>
  *----------------------------------------------------------------------*/
 
-/* This is a sample implementation of the SIMD-ification techniques
+/* Sample implementation of the SIMD-ification techniques
  * described in 'Portable, fully autovectorizable trial division
  * implementations for efficient primality testing'.
+ *
+ * These routines are SIMD-friendly implementations of trial divisions,
+ * filtering out prime candidates if they have small (prime) factor(s).
  */
 
 /* three prime-table sizes are predefined, with increasing
  * number of small primes:
  *   'S'  suitable for envs with fast modular exponentiation, such as
  *        hardware security modules, or anything else with hw engines
- *   'M'  comparable to typical trial-division code, such as OpenSSL
+ *   'M'  comparable to typical trial-division code, such as OpenSSL's
+ *        2048-prime tables
  *   'L'  recommended for platforms with slow modular exponentiation,
  *        or for higher prime bitcounts.
  *
- * relative performance (change percentages are approximate):
- *   'M'  (safe or twin primes) XXX % slower than 'S'; XXX % less
- *        calls to mod. exponentiations
- *        (plain or FIPS 186 primes) XXX % slower, XXX % less mod.expn.
- *
- *   'L'  (safe or twin primes) XXX % slower than 'S'; XXX % less
- *        calls to mod. exponentiations
- *        (plain or FIPS 186 primes) XXX % slower, XXX % less mod.expn.
- *
- * can define NO_SIMDDIVIDE_S ..._M ..._L, respectively, to
- * prohibit specific sizes. Expect only S and L in practice: those
- * with fast engines would prefer S; with SIMD-acceleration, the
- * incremental time between M and L is expected to be ~neglicible. (The
- * only practical reason for M is to achieve a small-factor-rejection
- * ratio comparable to typical sw implementations which sieve with ~2k
- * primes.)
+ * can define NO_SIMDDIVIDE_S ..._M ..._L, respectively, to prohibit
+ * specific sizes. Expect only S and L in practice: those with fast
+ * engines would prefer S; with SIMD-acceleration, the incremental time
+ * between M and L is expected to be ~negligible. (The only practical
+ * reason for M is to achieve a small-factor-rejection ratio comparable
+ * to typical sw implementations which sieve with ~2k primes.)
  *
  * conditional-disable prime-search types:
- *    NO_SIMD_TWINPRIME
- *    NO_SIMD_SAFEPRIME
- *    NO_SIMD_FIPS186PRIME  -- incremental search, FIPS 186-x sequence;
- *                          -- uses initial candidate plus P*Q increment
- *                          -- with P, Q auxiliary primes
- *    NO_SIMD_PLAINPRIME    -- incremental search checking 6k+1, 6k+5, 6k+7...
+ *    NO_SIMD_SAFEPRIME    -- p and 2p+1 are both primes
+ *    NO_SIMD_TWINPRIME    -- p and p+2 are both primes
+ *    NO_SIMD_FIPS186PRIME -- incremental search, FIPS 186-x sequence;
+ *                         -- uses initial candidate plus (2*)P*Q increment
+ *                         -- with P, Q auxiliary primes
+ *    NO_SIMD_PLAINPRIME   -- incremental search checking 6k+1, 6k+5, 6k+7...
  *
  * runtime control: set
  *    PRIMES=...            -- nr. of primes to trial-divide against; must
@@ -86,14 +80,19 @@
 
 #if 0
 // safe primes:
-//   distribution if smallest factors in array [5..], grouped into units
-//   of 16; probability of dividing an odd number in parts-per-million
-//   (in other words, cumulative probability distribution of SIMD
+//   distribution if smallest factors in array [5..], grouped into
+//   units of 16; approximate probability of dividing an odd number in
+//   parts-per-million. In other words, cumulative distribution of SIMD
 //   divisors falling in group N of 16x16 bits; 1: [5 .. 61], 2: [67 ..
-//   139], 3: [149 .. 229]...)
+//   139], 3: [149 .. 229]...:
+//     [  5.. 61]: p=.862418
+//     [ 67..139]: p=.901666
+//     [149..229]: p=.917172
+//     [233..317]: p=.925968
+//     ...
 //
-// note: 3 is missing from list of small primes; we only try
-// feasible 'm' values for 6k+m. Divide-by-3 is never needed.
+// note: 3 is missing from list of small primes; we only try feasible
+// 'm' values for 6k+m etc.; divide-by-3 is never needed.
 //
 // 862418[16] 901666[32] 917172[48] 925968[64] 931856[80]
 // 936392[96] 940019[112] 943068[128] 945645[144] 947863[160]
@@ -117,7 +116,9 @@
 // 972319[1424] 972320[1440] 972320[1456] 972320[1472]
 // 972320[1488] 972320[1504] 972321[1520] 972321[1536] ...
 //
-// changes above approximately 1168 are only marginally relevant.
+// changes above approximately 1168 are essentially relevant. for
+// non-SIMD environments where many short multiplications' cost is not
+// negligible, consider using fewer small primes.
 #endif
 
 
@@ -198,7 +199,7 @@ static inline void *wipe(void *s, size_t n)
 #else
 #define  SIMDPRIME_COUNT  ((unsigned int) 576)
 #endif
-// see also report_table_primes() and override_table_size(),
+// see also report_table_prime_count() and override_table_size(),
 // which must be updated in sync
 //
 struct PP_Mod16bit {
@@ -305,8 +306,8 @@ static void wipe_advance_struct(struct SIMD_Advance *pa)
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_mul16x16(uint16_t res[16], const uint16_t v[16],
-           const uint16_t coeff[16])
+void simd_mul16x16(uint16_t res[static 16], const uint16_t v[static 16],
+           const uint16_t coeff[static 16])
 {
 	res[  0 ] = v[  0 ] * coeff[  0 ];
 	res[  1 ] = v[  1 ] * coeff[  1 ];
@@ -347,7 +348,7 @@ static inline uint16_t le16mask(uint16_t a, uint16_t b)
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_advance16x16_inpl(uint16_t v[16], uint16_t add)
+void simd_advance16x16_inpl(uint16_t v[static 16], uint16_t add)
 {
 	v[  0 ] += add;
 	v[  1 ] += add;
@@ -376,7 +377,8 @@ void simd_advance16x16_inpl(uint16_t v[16], uint16_t add)
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_advance16x16_inpl_v(uint16_t v[16], const uint16_t add[16])
+void simd_advance16x16_inpl_v(uint16_t v[static 16],
+                      const uint16_t add[static 16])
 {
 	v[  0 ] += add[  0 ];
 	v[  1 ] += add[  1 ];
@@ -404,7 +406,8 @@ void simd_advance16x16_inpl_v(uint16_t v[16], const uint16_t add[16])
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_or16x16(uint16_t r[16], const uint16_t a[16], const uint16_t b[16])
+void simd_or16x16(uint16_t r[static 16], const uint16_t a[static 16],
+                                         const uint16_t b[static 16])
 {
 	r[  0 ] = a[  0 ] | b[  0 ];
 	r[  1 ] = a[  1 ] | b[  1 ];
@@ -463,10 +466,9 @@ static inline uint16_t m2range_1unit(uint16_t val, uint16_t m2r)
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_m2range16x16(uint16_t r[16], const uint16_t v[16],
-               const uint16_t m2r[16])
+void simd_m2range16x16(uint16_t r[static 16], const uint16_t v[static 16],
+               const uint16_t m2r[static 16])
 {
-
 	r[  0 ] = m2range_1unit(v[  0 ], m2r[  0 ]);
 	r[  1 ] = m2range_1unit(v[  1 ], m2r[  1 ]);
 	r[  2 ] = m2range_1unit(v[  2 ], m2r[  2 ]);
@@ -490,12 +492,14 @@ void simd_m2range16x16(uint16_t r[16], const uint16_t v[16],
  * reduce v[] in-place mod-small-primes[] (if entries are >= 0x8000)
  *
  * assume aggressive+forced inlining leads to recognized specialization
- * for src==dest
+ * for src==dest; we do not replicate the simd_m2range16x16() fn. body
+ * here
  */
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_m2range16x16_inpl(uint16_t v[16], const uint16_t m2r[16])
+void simd_m2range16x16_inpl(uint16_t v[static 16],
+                    const uint16_t m2r[static 16])
 {
 	simd_m2range16x16(v, v, m2r);
 }
@@ -507,9 +511,10 @@ void simd_m2range16x16_inpl(uint16_t v[16], const uint16_t m2r[16])
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_shladd16x16(uint16_t r[ 16 ], const uint16_t v[ 16 ],
-                                      const uint16_t add[ 16 ])
+void simd_shladd16x16(uint16_t r[static 16], const uint16_t v[static 16],
+                                           const uint16_t add[static 16])
 {
+
 	r[  0 ] = (v[  0 ] << 1) + add[  0 ];
 	r[  1 ] = (v[  1 ] << 1) + add[  1 ];
 	r[  2 ] = (v[  2 ] << 1) + add[  2 ];
@@ -704,7 +709,8 @@ unsigned int simd_is_all0(const uint16_t v[16])
 static inline
 REALLY_FORCE_INLINE
 /**/
-unsigned int simd_is_all0x64x16_inpl(uint16_t v[64], uint16_t tmp[16])
+unsigned int simd_is_all0x64x16_inpl(uint16_t v[static 64],
+                                   uint16_t tmp[static 16])
 {
 	simd_or16x16(tmp, &(v[32]), &(v[48]));       // 2 3
 	simd_or16x16(v,     v,      &(v[16]));       // 0 1
@@ -720,8 +726,8 @@ unsigned int simd_is_all0x64x16_inpl(uint16_t v[64], uint16_t tmp[16])
 static inline
 REALLY_FORCE_INLINE
 /**/
-void simd_advance64x16_m2r_inpl(uint16_t v[64], uint16_t adv,
-                        const uint16_t m2r[64])
+void simd_advance64x16_m2r_inpl(uint16_t v[static 64], uint16_t adv,
+                        const uint16_t m2r[static 64])
 {
 	simd_advance16x16_inpl(  v,          adv       );
 	simd_m2range16x16_inpl(  v,          m2r       );
@@ -773,10 +779,11 @@ void simd_advance64x16_m2r_inpl_v(uint16_t v[ 64 ],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_nofactor64x16(uint16_t tmp[ 64 ],
-                           uint16_t tmp2[ 64 ],
-                     const uint16_t modn[ 64 ], const uint16_t inv[64],
-                    const uint16_t limit[ 64 ])
+uint16_t simd_nofactor64x16(uint16_t tmp[static 64],
+                           uint16_t tmp2[static 64],
+                     const uint16_t modn[static 64],
+                      const uint16_t inv[static 64],
+                    const uint16_t limit[static 64])
 {
 					// compute n * 1/prime  mod 2^16
 
@@ -806,8 +813,8 @@ uint16_t simd_nofactor64x16(uint16_t tmp[ 64 ],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_nofactor_first(uint16_t tmp[ 64 ],
-                             uint16_t tm2[ 64 ],
+uint16_t simd_nofactor_first(uint16_t tmp[static 64],
+                             uint16_t tm2[static 64],
              const struct PP_Mod16bit *ps)
 {
 	return simd_nofactor64x16(tmp, tm2, ps->modn,
@@ -826,8 +833,8 @@ uint16_t simd_nofactor_first(uint16_t tmp[ 64 ],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_nofactor_rest_s(uint16_t tmp[ 64 ],
-                              uint16_t tm2[ 64 ],
+uint16_t simd_nofactor_rest_s(uint16_t tmp[static 64],
+                              uint16_t tm2[static 64],
               const struct PP_Mod16bit *ps)
 {
 	return (simd_nofactor64x16(tmp, tm2, &(ps->modn[  64 ]),
@@ -965,8 +972,8 @@ uint16_t simd_nofactor_rest_m(uint16_t tmp[ 64 ],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_nofactor_rest_l(uint16_t tmp[ 64 ],
-                              uint16_t tm2[ 64 ],
+uint16_t simd_nofactor_rest_l(uint16_t tmp[static 64],
+                              uint16_t tm2[static 64],
               const struct PP_Mod16bit *ps)
 {
 	return (simd_nofactor64x16(tmp, tm2, &(ps->modn[ 1856 ]),
@@ -1118,9 +1125,9 @@ uint16_t simd_no_spfactor_first(uint16_t tmp[64],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_no_spfactor_rest1(uint16_t tmp[  64 ],
-                               uint16_t tmp2[  64 ],
-                         const uint16_t modn[ 576 ])
+uint16_t simd_no_spfactor_rest1(uint16_t tmp[static  64],
+                               uint16_t tmp2[static  64],
+                         const uint16_t modn[static 576])
 {
 	return (simd_no_spfactor64x16(tmp, tmp2, &(modn[  64 ]),
 	                     &(firstprimes_inverse_simd[  64 ]),
@@ -1162,9 +1169,9 @@ uint16_t simd_no_spfactor_rest1(uint16_t tmp[  64 ],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_no_spfactor_rest_m(uint16_t tmp[   64 ],
-                                uint16_t tmp2[   64 ],
-                          const uint16_t modn[ 1856 ])
+uint16_t simd_no_spfactor_rest_m(uint16_t tmp[static   64],
+                                uint16_t tmp2[static   64],
+                          const uint16_t modn[static 1856])
 {
 	return (simd_no_spfactor_rest1(tmp, tmp2, modn) &&
 
@@ -2004,10 +2011,10 @@ void simd_advance_rest_v_aw(struct PP_Mod16bit *ps)
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_no_spfactor64x16(uint16_t tmp[ 64 ],
-                               uint16_t tm2[ 64 ],
-                        const uint16_t modn[ 64 ], const uint16_t inv[64],
-                       const uint16_t limit[ 64 ])
+uint16_t simd_no_spfactor64x16(uint16_t tmp[static 64],
+                               uint16_t tm2[static 64],
+                        const uint16_t modn[static 64], const uint16_t inv[64],
+                       const uint16_t limit[static 64])
 {
 				// compute n * 1/prime  mod 2^16 products
 
@@ -2071,11 +2078,11 @@ void simd_cmp16x16_twin(uint16_t   r[ 16 ],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_no_twinfactor64x16(uint16_t tmp[ 64 ],
-                                 uint16_t tm2[ 64 ],
-                          const uint16_t modn[ 64 ],
-                           const uint16_t inv[ 64 ],
-                         const uint16_t limit[ 64 ])
+uint16_t simd_no_twinfactor64x16(uint16_t tmp[static 64],
+                                 uint16_t tm2[static 64],
+                          const uint16_t modn[static 64],
+                           const uint16_t inv[static 64],
+                         const uint16_t limit[static 64])
 {
 					// tmp[] = modn[] * 1/prime[]  mod 2^16
 
@@ -2495,8 +2502,8 @@ unsigned long init_search(const uint64_t *lsb, unsigned long count,
  * is the current state divided by any of the first 576 primes?
  */
 static inline
-uint16_t simd_has_no_factor(uint16_t tmp[ 64 ],
-                            uint16_t tm2[ 64 ],
+uint16_t simd_has_no_factor(uint16_t tmp[static 64],
+                            uint16_t tm2[static 64],
             const struct PP_Mod16bit *ps)
 {
 	return (simd_nofactor_first(tmp, tm2, ps) &&
@@ -2513,8 +2520,8 @@ uint16_t simd_has_no_factor(uint16_t tmp[ 64 ],
 static inline
 unsigned long simd_check_plain1(uint64_t *lsb, unsigned long count,
                            unsigned long wr,
-                                uint16_t tmp[ 64 ],
-                                uint16_t tm2[ 64 ],
+                                uint16_t tmp[static 64],
+                                uint16_t tm2[static 64],
                 const struct PP_Mod16bit *ps)
 {
 	if (simd_has_no_factor(tmp, tm2, ps))
@@ -2529,8 +2536,8 @@ unsigned long simd_check_plain1(uint64_t *lsb, unsigned long count,
  * is the current state divided by any of the first 1856 primes?
  */
 static inline
-uint16_t simd_has_no_factor_m(uint16_t tmp[ 64 ],
-                              uint16_t tm2[ 64 ],
+uint16_t simd_has_no_factor_m(uint16_t tmp[static 64],
+                              uint16_t tm2[static 64],
               const struct PP_Mod16bit *ps)
 {
 	return (simd_nofactor_first(tmp, tm2, ps) &&
@@ -2550,8 +2557,8 @@ uint16_t simd_has_no_factor_m(uint16_t tmp[ 64 ],
 static inline
 unsigned long simd_check_plain1_m(uint64_t *lsb, unsigned long count,
                              unsigned long wr,
-                                  uint16_t tmp[ 64 ],
-                                  uint16_t tm2[ 64 ],
+                                  uint16_t tmp[static 64],
+                                  uint16_t tm2[static 64],
                   const struct PP_Mod16bit *ps)
 {
 	if (simd_has_no_factor_m(tmp, tm2, ps))
@@ -2567,8 +2574,8 @@ unsigned long simd_check_plain1_m(uint64_t *lsb, unsigned long count,
  * is the current state divided by any of the first 3456 primes?
  */
 static inline
-uint16_t simd_has_no_factor_l(uint16_t tmp[ 64 ],
-                              uint16_t tm2[ 64 ],
+uint16_t simd_has_no_factor_l(uint16_t tmp[static 64],
+                              uint16_t tm2[static 64],
               const struct PP_Mod16bit *ps)
 {
 	return (simd_nofactor_first(tmp, tm2, ps) &&
@@ -3468,15 +3475,18 @@ static int override_table_size(struct PP_Mod16bit *ps, const char *primes)
 //--------------------------------------
 // keep in sync with SIMDPRIME_COUNT
 //
-static unsigned int report_table_primes(const struct PP_Mod16bit *ps)
+static unsigned int report_table_prime_count(const struct PP_Mod16bit *ps)
 {
 	switch (ps ? (ps->mode & SIMD_SEARCHTABLE_MASK) : 0) {
 		case SIMD_SEARCHTABLE_L:
 			return 3456;
+
 		case SIMD_SEARCHTABLE_M:
 			return 1856;
+
 		case SIMD_SEARCHTABLE_S:
 			return 576;
+
 		default:
 			return 0;
 	}
@@ -3489,12 +3499,16 @@ static const char *report_prime_type(const struct PP_Mod16bit *ps)
 	switch (ps ? (ps->mode & SIMD_PRIMETYPE_MASK) : 0) {
 		case SIMD_PRIMETYPE_TWIN:
 			return "twin";
+
 		case SIMD_PRIMETYPE_SAFE:
 			return "safe";
+
 		case SIMD_PRIMETYPE_FIPS186:
 			return "FIPS-186";
+
 		case SIMD_PRIMETYPE_PLAIN:
 			return "plain(PKCS1)";
+
 		default:
 			return "UNKNOWN";
 	}
@@ -3588,8 +3602,8 @@ int main(int argc, const char **argv)
 	if (override_table_size(&ps, getenv("PRIMES")) <0)
 		return cu_reportrc("invalid prime-count specified", -1);
 
-	printf("## PRIMES=%u\n", report_table_primes(&ps));
-	printf("## TYPE=%s\n", report_prime_type(&ps));
+	printf("## PRIMES=%u\n", report_table_prime_count(&ps));
+	printf("## TYPE=%s\n",   report_prime_type(&ps));
 
 	{
 	struct timespec start, end;
