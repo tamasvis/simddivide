@@ -541,8 +541,8 @@ void simd_shladd16x16(uint16_t r[static 16], const uint16_t v[static 16],
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_min16x16(uint16_t r[ 16 ], const uint16_t a[ 16 ],
-                                     const uint16_t b[ 16 ])
+void simd_min16x16(uint16_t r[static 16], const uint16_t a[static 16],
+                                          const uint16_t b[static 16])
 {
 	r[  0 ] = (a[  0 ] < b[  0 ]) ? a[  0 ] : b[  0 ];
 	r[  1 ] = (a[  1 ] < b[  1 ]) ? a[  1 ] : b[  1 ];
@@ -569,7 +569,8 @@ void simd_min16x16(uint16_t r[ 16 ], const uint16_t a[ 16 ],
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_lemask16x16_inpl(uint16_t r[ 16 ], const uint16_t limit[ 16 ])
+void simd_lemask16x16_inpl(uint16_t r[static 16],
+                 const uint16_t limit[static 16])
 {
 	r[  0 ] = le16mask(r[  0 ], limit[  0 ]);
 	r[  1 ] = le16mask(r[  1 ], limit[  1 ]);
@@ -612,9 +613,9 @@ void simd_lemask16x16_inpl(uint16_t r[ 16 ], const uint16_t limit[ 16 ])
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_spcmp16x16(uint16_t r[16], const uint16_t v[16],
-                                   const uint16_t inv[16],
-                                   const uint16_t limit[16])
+void simd_spcmp16x16(uint16_t r[static 16], const uint16_t v[static 16],
+             const uint16_t inv[static 16],
+           const uint16_t limit[static 16])
 {
 	uint16_t tmp[16];
 // TODO: use external tmp[] which may be centrally wiped
@@ -655,7 +656,7 @@ static const uint16_t simd_allzero256bits[ 16 ];
 static inline
 REALLY_FORCE_INLINE
 //
-unsigned int simd_is_all0(const uint16_t v[16])
+unsigned int simd_is_all0(const uint16_t v[static 16])
 {
 	return !memcmp(simd_allzero256bits, v, sizeof(simd_allzero256bits));
 }
@@ -751,9 +752,9 @@ void simd_advance64x16_m2r_inpl(uint16_t v[static 64], uint16_t adv,
 static inline
 REALLY_FORCE_INLINE
 /**/
-void simd_advance64x16_m2r_inpl_v(uint16_t v[ 64 ],
-                          const uint16_t adv[ 64 ],
-                          const uint16_t m2r[ 64 ])
+void simd_advance64x16_m2r_inpl_v(uint16_t v[static 64],
+                          const uint16_t adv[static 64],
+                          const uint16_t m2r[static 64])
 {
 	simd_advance16x16_inpl_v(  v,          adv       );
 	simd_m2range16x16_inpl  (  v,          m2r       );
@@ -879,8 +880,8 @@ uint16_t simd_nofactor_rest_s(uint16_t tmp[static 64],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_nofactor_rest_m(uint16_t tmp[ 64 ],
-                              uint16_t tm2[ 64 ],
+uint16_t simd_nofactor_rest_m(uint16_t tmp[static 64],
+                              uint16_t tm2[static 64],
               const struct PP_Mod16bit *ps)
 {
 	return (simd_nofactor64x16(tmp, tm2, &(ps->modn[  576 ]),
@@ -1087,10 +1088,11 @@ uint16_t simd_nofactor_rest_l(uint16_t tmp[static 64],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_no_spfactor64x16(uint16_t tmp[64],
-                              uint16_t tmp2[64],
-                        const uint16_t modn[64], const uint16_t inv[64],
-                       const uint16_t limit[64]) ;
+uint16_t simd_no_spfactor64x16(uint16_t tmp[static 64],
+                              uint16_t tmp2[static 64],
+                        const uint16_t modn[static 64],
+                         const uint16_t inv[static 64],
+                       const uint16_t limit[static 64]) ;
 
 
 #if 0
@@ -1104,8 +1106,8 @@ uint16_t simd_no_spfactor64x16(uint16_t tmp[64],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_no_spfactor_first(uint16_t tmp[64],
-                                uint16_t tm2[64],
+uint16_t simd_no_spfactor_first(uint16_t tmp[static 64],
+                                uint16_t tm2[static 64],
                 const struct PP_Mod16bit *ps)
 {
 	return simd_no_spfactor64x16(tmp, tm2, ps->modn,
@@ -1263,9 +1265,9 @@ uint16_t simd_no_spfactor_rest_m(uint16_t tmp[static   64],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_no_spfactor_rest_l(uint16_t tmp[   64 ],
-                                 uint16_t tmp2[   64 ],
-                           const uint16_t modn[ 3456 ])
+uint16_t simd_no_spfactor_rest_l(uint16_t tmp[static   64],
+                                uint16_t tmp2[static   64],
+                          const uint16_t modn[static 3456])
 {
 	return (simd_no_spfactor_rest_m(tmp, tmp2, modn) &&
 
@@ -1386,8 +1388,8 @@ uint16_t simd_no_spfactor_rest_l(uint16_t tmp[   64 ],
 static inline
 REALLY_FORCE_INLINE
 /**/
-uint16_t simd_no_spfactor_rest(uint16_t tmp[64],
-                              uint16_t tmp2[64],
+uint16_t simd_no_spfactor_rest(uint16_t tmp[static 64],
+                              uint16_t tmp2[static 64],
                const struct PP_Mod16bit *ps)
 {
 	return simd_no_spfactor_rest1(tmp, tmp2, ps->modn);
@@ -1612,7 +1614,8 @@ void simd_advance_remainders_rest_l(struct PP_Mod16bit *dst, uint16_t adv)
 static inline
 REALLY_FORCE_INLINE
 /**/
-void simd_advance_rest_v_s(struct PP_Mod16bit *dst, const uint16_t adv[ 576 ])
+void simd_advance_rest_v_s(struct PP_Mod16bit *dst,
+                               const uint16_t adv[static 576])
 {
 	simd_advance64x16_m2r_inpl_v(&(dst->modn[  64 ]),
 	                                   &(adv[  64 ]),
@@ -1657,7 +1660,8 @@ void simd_advance_rest_v_s(struct PP_Mod16bit *dst, const uint16_t adv[ 576 ])
 static inline
 REALLY_FORCE_INLINE
 /**/
-void simd_advance_rest_v_m(struct PP_Mod16bit *dst, const uint16_t adv[ 1856 ])
+void simd_advance_rest_v_m(struct PP_Mod16bit *dst,
+                               const uint16_t adv[static 1856])
 {
 	simd_advance_rest_v_s(dst, adv);
 
@@ -1753,7 +1757,8 @@ void simd_advance_rest_v_m(struct PP_Mod16bit *dst, const uint16_t adv[ 1856 ])
 static inline
 REALLY_FORCE_INLINE
 /**/
-void simd_advance_rest_v_l(struct PP_Mod16bit *dst, const uint16_t adv[ 3456 ])
+void simd_advance_rest_v_l(struct PP_Mod16bit *dst,
+                               const uint16_t adv[static 3456])
 {
 	simd_advance_rest_v_m(dst, adv);
 
@@ -2013,7 +2018,8 @@ REALLY_FORCE_INLINE
 /**/
 uint16_t simd_no_spfactor64x16(uint16_t tmp[static 64],
                                uint16_t tm2[static 64],
-                        const uint16_t modn[static 64], const uint16_t inv[64],
+                        const uint16_t modn[static 64], 
+                         const uint16_t inv[static 64],
                        const uint16_t limit[static 64])
 {
 				// compute n * 1/prime  mod 2^16 products
@@ -2056,11 +2062,11 @@ uint16_t simd_no_spfactor64x16(uint16_t tmp[static 64],
 static inline
 REALLY_FORCE_INLINE
 //
-void simd_cmp16x16_twin(uint16_t   r[ 16 ],
-                        uint16_t tmp[ 16 ],
-                  const uint16_t   u[ 16 ],
-                  const uint16_t inv[ 16 ],
-                const uint16_t limit[ 16 ])
+void simd_cmp16x16_twin(uint16_t   r[static  16],
+                        uint16_t tmp[static  16],
+                  const uint16_t   u[static  16],
+                  const uint16_t inv[static  16],
+                const uint16_t limit[static  16])
 {
 	simd_shladd16x16(tmp, inv, u);          // (u * 1/p) + 2/p =~ u/p + 2/p
 
@@ -2593,8 +2599,8 @@ uint16_t simd_has_no_factor_l(uint16_t tmp[static 64],
 static inline
 unsigned long simd_check_plain1_l(uint64_t *lsb, unsigned long count,
                               unsigned long wr,
-                                   uint16_t tmp[64],
-                                   uint16_t tm2[64],
+                                   uint16_t tmp[static 64],
+                                   uint16_t tm2[static 64],
                    const struct PP_Mod16bit *ps)
 {
 	if (simd_has_no_factor_l(tmp, tm2, ps))
