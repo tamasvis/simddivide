@@ -8,16 +8,19 @@
 ##     ARM        -- ARM64, Neon (128-bit)
 ##     ARMSVE     -- ARM64, Scalable Vector Extensions
 ##                -- =256 or =512 to force specific SVE bitwidth
+##     NOSIMD     -- prohibit use of SIMD extensions (while still inferring
+##                   architecture, to know the exact invocation to disable)
 ##
-## please define exactly one; results when multiple are defined
-## are unpredictable.
-## WE DO NOT ATTEMPT TO AUTODETECT CONFIGURATION.
+## please define exactly one of these (except NOSIMD); results when
+## multiple are defined are unpredictable.
+## we use amd64 with AVX2 as default.
 ##
 ## set CC to gcc or clang to force specific compiler.
 ## results are marked 'architecture-subvariant-compiler'
 
 
 ##-----  pick up BUILD_ARCH, TUNE_ARCH and DESCR for processor/instr.set
+## note: do not leave spaces in DESCR
 ##
 ifeq ($(AVX),256)
 BUILD_ARCH := -march=x86-64-v2 -mno-avx512f -mavx2
@@ -28,12 +31,16 @@ DESCR      := amd64-avx2
 		## AVX-512 feature depends on 
 		##
 		## arch=x86-64-v2 applies generic tuning
+ifneq ($(NOSIMD),)
+## TODO
+endif
 
 else ifeq ($(AVX),512)
 BUILD_ARCH := -march=x86-64-v4 -mavx10.2
 TUNE_ARCH  :=
 DESCR      := amd64-avx512
 		## -mavx10.1-512 is deprecated by gcc15
+
 
 else ifeq ($(ARM),1)
 BUILD_ARCH := -march=armv8-a+simd
@@ -49,6 +56,12 @@ DESCR      := arm64-sve
 else
 $(error "environment not defined")
 
+endif
+
+
+##---  mark SIMD-prohibited build
+ifneq ($(NOSIMD),)
+DESCR := $(DESCR)-nosimd
 endif
 
 
