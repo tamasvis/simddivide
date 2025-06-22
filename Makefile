@@ -27,8 +27,9 @@
 ##
 ## switches to disable *every* feature even remotely related to AVX:
 NO_AVX_ALL := -mno-avx512f -mno-avx10.2 -mno-avx2 -mno-avx \
-              -mno-avx512vl -mno-avx10.1-256 -mno-avx10.1-512 \
-              -mno-sse
+              -mno-avx512vl -mno-sse2 -mno-sse3 -mno-sse4
+##
+## not on clang: -mno-avx10.1-256 -mno-avx10.1-512
 ##
 ## please do not comment on how nice this is
 ##
@@ -54,7 +55,7 @@ NO_AVX_ALL := -mno-avx512f -mno-avx10.2 -mno-avx2 -mno-avx \
 ## note: do not leave spaces in DESCR
 ##
 ifeq ($(AVX),256)
-BUILD_ARCH := -march=x86-64-v2 -mno-avx512f -mno-avx10.1 -mno-avx10.2 -mavx2
+BUILD_ARCH := -march=x86-64-v2 -mno-avx512f -mno-avx10.2 -mavx2
 TUNE_ARCH  :=
 DESCR      := amd64-avx2
 		## -mno-avx512f is redundant; it prohibits AVX-512 by ignoring
