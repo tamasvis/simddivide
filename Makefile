@@ -77,16 +77,25 @@ BUILD_ARCH := -march=x86-64-v2 $(NO_AVX_ALL)
 endif
 
 
-else ifeq ($(ARM),1)
+else ifeq ($(ARM),1)  ##-----  ARM/neon  -------------------------------------
 BUILD_ARCH := -march=armv8-a+simd
 TUNE_ARCH  :=
 DESCR      := arm64-neon
+##
+ifneq ($(NOSIMD),)
+BUILD_ARCH := -march=armv8-a+nosimd
+endif
 
-else ifeq ($(ARMSVE),1)
+
+else ifeq ($(ARMSVE),1)   ##-----  ARM/SVE  ----------------------------------
 $(error "ARM/SVE things come here")
 BUILD_ARCH := -march=armv8-a+simd
 TUNE_ARCH  :=
 DESCR      := arm64-sve
+##
+ifneq ($(NOSIMD),)
+BUILD_ARCH := -march=armv8-a+nosimd
+endif
 
 else
 $(error "environment not defined")
