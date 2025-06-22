@@ -19,11 +19,42 @@
 ## results are marked 'architecture-subvariant-compiler'
 
 
+## the interaction of AVX2/512/10 switches, and their prohibition,
+## is compiler etc. dependent; we show a best-effort attempt below.
+##
+## see inbox.sourceware.org/gcc-patches/ZNT%2Fz8wE%2F4TW0F6Z@tucnak/T/
+## for a representative example
+##
+## switches to disable *every* feature even remotely related to AVX:
+NO_AVX_ALL := -mno-avx512f -mno-avx10.2 -mno-avx2 -mno-avx \
+              -mno-avx512vl -mno-avx10.1-256 -mno-avx10.1-512 \
+              -mno-sse
+##
+## please do not comment on how nice this is
+##
+## we are aware that mixing AVX-512 and AVX-10 options are *strongly*
+## discouraged; we assume any target would resolve this (and we picked
+## these options only to demonstrate our primitives' compilation)
+##
+## since our AVX primitives update memory-resident vectors, but there are no
+## AVX return values, we do not expect AVX512/AVX10 interference:
+##
+## from clang.llvm.org/docs/UsersManual.html:
+## > Current binaries built with AVX512 features can run on Intel
+## > AVX10/512 capable processors without re-compile, but cannot run on
+## > AVX10/256 capable processors. Users need to re-compile their code
+## > with -mavx10.N, and maybe update some code that calling to 512-bit
+## > X86 specific intrinsics and passing or returning 512-bit vector
+## > types in function call, if they want to run on AVX10/256 capable
+## > processors. Binaries built with -mavx10.N can run on both AVX10/256
+## > and AVX10/512 capable processors.
+
+
 ##-----  pick up BUILD_ARCH, TUNE_ARCH and DESCR for processor/instr.set
 ## note: do not leave spaces in DESCR
 ##
 ifeq ($(AVX),256)
-BUILD_ARCH := -march=x86-64-v2 -mno-avx512f -mavx2
+BUILD_ARCH := -march=x86-64-v2 -mno-avx512f -mno-avx10.1 -mno-avx10.2 -mavx2
 TUNE_ARCH  :=
 DESCR      := amd64-avx2
 		## -mno-avx512f is redundant; it prohibits AVX-512 by ignoring
@@ -32,14 +63,17 @@ DESCR      := amd64-avx2
 		##
 		## arch=x86-64-v2 applies generic tuning
 ifneq ($(NOSIMD),)
-## TODO
+BUILD_ARCH := -march=x86-64-v2 $(NO_AVX_ALL)
 endif
 
-else ifeq ($(AVX),512)
+else ifeq ($(AVX),512)  ##----------------------------------------------------
 BUILD_ARCH := -march=x86-64-v4 -mavx10.2
 TUNE_ARCH  :=
 DESCR      := amd64-avx512
-		## -mavx10.1-512 is deprecated by gcc15
+		## note: -mavx10.1-512 is deprecated by gcc15
+ifneq ($(NOSIMD),)
+BUILD_ARCH := -march=x86-64-v2 $(NO_AVX_ALL)
+endif
 
 
 else ifeq ($(ARM),1)
