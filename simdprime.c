@@ -3240,7 +3240,7 @@ uint64_t sfsieve_advance(uint64_t *lsb, unsigned long count,
 
 
 #if 1  //=====  delimiter: standalone test code  =============================
-#define USE_OPENSSL
+#define USE_OPENSSL   /* check conditionals below; add other CSPs if needed */
 
 /*--------------------------------------
  * returns number of mode-specifying bits at start of 'base'
@@ -3479,6 +3479,13 @@ static int override_table_size(struct PP_Mod16bit *ps, const char *primes)
 
 
 //--------------------------------------
+static int searchtype_uses_increment(const struct PP_Mod16bit *ps)
+{
+	return (ps && (SIMD_PRIMETYPE_FIPS186 & ps->mode));
+}
+
+
+//--------------------------------------
 // keep in sync with SIMDPRIME_COUNT
 //
 static unsigned int report_table_prime_count(const struct PP_Mod16bit *ps)
@@ -3559,8 +3566,9 @@ static void buffer2be64(uint64_t *p, unsigned int pn)
 
 
 //--------------------------------------
-// serialize be64 increments in-place; hash entire stream
+// serialize be64 increments in-place; hash entire stream; output hex-str hash
 // MAY change p[]
+// note: no error handling; we only use this to demonstrate 
 //
 static void hash_buffer(uint64_t *p, unsigned int pn)
 {
@@ -3571,6 +3579,7 @@ static void hash_buffer(uint64_t *p, unsigned int pn)
 		buffer2be64(p, pn);       // in-place BE64() || with no padding
 
 		EVP_Q_digest(NULL, "SHA512", NULL, p, pn*8, h, &hb);
+// TODO: output
 	}
 }
 #endif    /*-----  USE_OPENSSL  --------------------------------------------*/
@@ -3596,11 +3605,8 @@ int main(int argc, const char **argv)
 		return -1;
 	printf("## P0=%s\n", argv[0]);
 
-#if 0
-// TODO: centralized has-increment() etc. check
-	if ((argc > 1) && (SIMD_PRIMETYPE_FIPS186 & ps.mode))
+	if ((argc > 1) && searchtype_uses_increment(&ps))
 		printf("## INCR=%s\n", argv[1]);
-#endif
 
 	pcount = SF_TEST_UNITS;
 
@@ -3636,7 +3642,7 @@ int main(int argc, const char **argv)
 		for (i=0; i<pcount; ++i)
 			printf("adv[%lu]=x%016" PRIx64 "\n", i, possible[i]);
 	} else {
-		for (i=0; i<100; ++i)
+		for (i=0; i<60; ++i)
 			printf("adv[%lu]=x%016" PRIx64 "\n", i, possible[i]);
 		printf("...\n");
 
