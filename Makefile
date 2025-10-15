@@ -1,10 +1,19 @@
+## This is only a technology demonstrator; a sample application. We
+## give rudimentary control over building non/SIMD, with the specific
+## SIMD sub-variant caller specified.
+##
+## We expect versions of generated trial-division code to be directly
+## included in projects, we expect to inherit its compiler/optimization
+## setting from those. This makefile only serves demonstration purposes.
+
+
 ## Architecture control
 ##
 ## we force architecture to match one of the following predefined
 ## configurations, by expecting one of the following env. variables:
 ##     AVX=256    -- amd64, AVX2 (256-bit)
-##     AVX=512
-##     S390       -- SIMD extensions (256-bit)
+##     AVX=512    -- amd64, AVX-512:w
+##     S390       -- 64-bit s390x, SIMD extensions (256-bit)
 ##     ARM        -- ARM64, Neon (128-bit)
 ##     ARMSVE     -- ARM64, Scalable Vector Extensions
 ##                -- =256 or =512 to force specific SVE bitwidth
