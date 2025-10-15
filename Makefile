@@ -7,6 +7,10 @@
 ## setting from those. This makefile only serves demonstration purposes.
 
 
+## default target is 'asmfns' which, given a (no-)SIMD setup and
+## a compiler spec, generates a representative extract (by capturing
+## one of the SIMD-friendly targets)
+##
 ## Architecture control
 ##
 ## we force architecture to match one of the following predefined
@@ -247,6 +251,9 @@ ALL_OR0 := $(Q_OR0) $(NOAVX512_OR0)
 MARK := $(PF)-$(DESCR)$(CCMARK)
 
 
+asmfns: simdprime$(MARK)-fns.s
+
+
 ##--------------------------------------
 simdprime$(MARK).o: simdprime.c $(wildcard *.h)
 	$(CC) $(CWARN) $(COPT) $(CSAN) $(ALL_OR0) -v -o $@ -c $< | \
@@ -315,9 +322,6 @@ simdprime$(MARK)-fns.s: simdprime$(MARK).o
 	gdb -batch -ex "disassemble/rs sfsieve_advance_l" \
 		-ex "disassemble/rs twin_advance_l" $^ \
 			| $(NWSPACE) >> $@
-
-
-asmfns: simdprime$(MARK)-fns.s
 
 
 ##--------------------------------------
