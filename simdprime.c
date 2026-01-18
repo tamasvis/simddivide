@@ -632,6 +632,7 @@ void simd_spcmp16x16(uint16_t r[static 16], const uint16_t v[static 16],
 #if 1   // delimiter: generated code
 #if 1   // 256 bit: these are just pass-through functions
 
+SIMD_ALIGN
 static const uint16_t simd_allzero256bits[ 16 ];
 //
 // comparison with all-zeroes, which is usually special-cased by SIMD
