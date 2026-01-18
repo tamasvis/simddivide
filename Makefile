@@ -17,18 +17,18 @@
 ## configurations, by expecting one of the following env. variables:
 ##     AVX=256    -- amd64, AVX2 (256-bit)
 ##     AVX=512    -- amd64, AVX-512:w
-##     S390       -- 64-bit s390x, SIMD extensions (256-bit)
+##     S=390      -- 64-bit s390x, SIMD extensions (256-bit)
 ##     ARM        -- ARM64, Neon (128-bit)
 ##     ARMSVE     -- ARM64, Scalable Vector Extensions
 ##                -- =256 or =512 to force specific SVE bitwidth
 ##     NOSIMD     -- prohibit use of SIMD extensions (while still inferring
 ##                   architecture, to know the exact invocation to disable)
 ##
-## please define exactly one of these (except NOSIMD); results when
-## multiple are defined are unpredictable.
-## we use amd64 with AVX2 as default.
+## please define exactly one of these variants (except NOSIMD)
+## results when multiple are defined are undefined.
+## we attempt amd64 with AVX2 as default.
 ##
-## set CC to gcc or clang to force specific compiler.
+## set CC to gcc or clang to force specific compiler; required.
 ## results are marked 'architecture-subvariant-compiler'
 
 
@@ -110,8 +110,19 @@ ifneq ($(NOSIMD),)
 BUILD_ARCH := -march=armv8-a+nosimd
 endif
 
+
+else ifeq ($(S),390)   ##-----  S390  ----------------------------------------
+$(error "S390x things come here")
+BUILD_ARCH := -march=armv8-a+simd
+TUNE_ARCH  :=
+DESCR      := arm64-sve
+##
+ifneq ($(NOSIMD),)
+BUILD_ARCH := -march=armv8-a+nosimd
+endif
+
 else
-$(error "environment not defined")
+$(error "environment not defined (AVX/ARM/ARMSVE/S390)")
 
 endif
 
@@ -161,7 +172,9 @@ CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
 CCMARK  := $(if $(filter gcc clang tcc,$(CC)),-$(CC),)
 
 ifeq ($(CC),cc)
-$(error "specify CC=gcc/clang/tcc...")
+CC     := gcc
+CCMARK := -gcc
+$(info "autoselecting CC=gcc")
 endif
 
 ## ## platform mnemonic, if known; map to amd64/arm64
