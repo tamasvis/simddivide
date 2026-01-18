@@ -1,4 +1,4 @@
-gcc (SUSE Linux) 15.1.1 20250528
+gcc (SUSE Linux) 15.2.1 20251006
 Copyright (C) 2025 Free Software Foundation, Inc.
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -394,8 +394,8 @@ simdprime.c:
    0x0000000000042456 <+198>:	62 61 fd 28 6f 25 00 00 00 00	vmovdqa64 0x0(%rip),%ymm28        # 0x42460 <sfsieve_advance_l+208>
    0x0000000000042460 <+208>:	62 61 fd 28 6f 35 00 00 00 00	vmovdqa64 0x0(%rip),%ymm30        # 0x4246a <sfsieve_advance_l+218>
    0x000000000004246a <+218>:	62 61 fd 28 6f 2d 00 00 00 00	vmovdqa64 0x0(%rip),%ymm29        # 0x42474 <sfsieve_advance_l+228>
-   0x0000000000042474 <+228>:	66 66 2e 0f 1f 84 00 00 00 00 00	data16 cs nopw 0x0(%rax,%rax,1)
-   0x000000000004247f <+239>:	90                 	nop
+   0x0000000000042474 <+228>:	90                 	nop
+   0x0000000000042475 <+229>:	66 66 2e 0f 1f 84 00 00 00 00 00	data16 cs nopw 0x0(%rax,%rax,1)
 3179			unsigned int adv1 = 0;
 3180	
 3181			while (!(adv1 >> 14) &&
@@ -484,8 +484,8 @@ simdprime.c:
 312		res[  0 ] = v[  0 ] * coeff[  0 ];
    0x00000000000424b6 <+294>:	62 d1 ff 28 6f 6f 02	vmovdqu16 0x40(%r15),%ymm5
    0x00000000000424bd <+301>:	62 d1 ff 28 6f 67 03	vmovdqu16 0x60(%r15),%ymm4
-   0x00000000000424c4 <+308>:	66 66 2e 0f 1f 84 00 00 00 00 00	data16 cs nopw 0x0(%rax,%rax,1)
-   0x00000000000424cf <+319>:	90                 	nop
+   0x00000000000424c4 <+308>:	90                 	nop
+   0x00000000000424c5 <+309>:	66 66 2e 0f 1f 84 00 00 00 00 00	data16 cs nopw 0x0(%rax,%rax,1)
    0x00000000000424d0 <+320>:	62 91 55 28 d5 d4  	vpmullw %ymm28,%ymm5,%ymm2
    0x00000000000424d6 <+326>:	62 91 5d 28 d5 ce  	vpmullw %ymm30,%ymm4,%ymm1
    0x00000000000424dc <+332>:	c5 f9 c5 c3 00     	vpextrw $0x0,%xmm3,%eax
@@ -11225,8 +11225,8 @@ simdprime.c:
    0x0000000000047111 <+19841>:	62 91 fd 28 6f d0  	vmovdqa64 %ymm24,%ymm2
    0x0000000000047117 <+19847>:	c4 e2 7d 17 d2     	vptest %ymm2,%ymm2
    0x000000000004711c <+19852>:	0f 84 d4 2a 00 00  	je     0x49bf6 <sfsieve_advance_l+30822>
-   0x0000000000047122 <+19858>:	66 66 2e 0f 1f 84 00 00 00 00 00	data16 cs nopw 0x0(%rax,%rax,1)
-   0x000000000004712d <+19869>:	0f 1f 00           	nopl   (%rax)
+   0x0000000000047122 <+19858>:	0f 1f 00           	nopl   (%rax)
+   0x0000000000047125 <+19861>:	66 66 2e 0f 1f 84 00 00 00 00 00	data16 cs nopw 0x0(%rax,%rax,1)
 353		v[  0 ] += add;
    0x0000000000047130 <+19872>:	b8 06 00 06 00     	mov    $0x60006,%eax
 1882			ps->mod6   =  (ps->mod6 + (adv % 6)) % 6;
