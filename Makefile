@@ -73,7 +73,7 @@ TUNE_ARCH  :=
 DESCR      := amd64-avx2
 		## -mno-avx512f is redundant; it prohibits AVX-512 by ignoring
 		## the ..512f 'fundamental' instructions, which every other
-		## AVX-512 feature depends on 
+		## AVX-512 feature depends on
 		##
 		## arch=x86-64-v2 applies generic tuning
 ifneq ($(NOSIMD),)
@@ -299,7 +299,7 @@ simdprime$(MARK).s: simdprime$(MARK).s0
 ## (3) typical instruction-terminating straggler bytes:
 ##       ...
 ##       1ab5c:   c4 e2 65 00 05 00 00    vpshufb 0x0(%rip),%ymm3,%ymm0
-##       1ab63:   00 00  
+##       1ab63:   00 00
 ##       ...
 ##       1ae48:   62 72 f5 49 66 35 00    vpblendmw 0x0(%rip),%zmm1,%zmm14{%k1}
 ##       1ae4f:   00 00 00
@@ -312,9 +312,9 @@ simdprime$(MARK).s: simdprime$(MARK).s0
 ##       ...
 ##     note: with trailing whitespace:
 ##       ...
-##       ^Ires[  0 ] = v[  0 ] * coeff[  0 ];$ 
+##       ^Ires[  0 ] = v[  0 ] * coeff[  0 ];$
 ##         2225f:^I41 0f b7 87 80 07 00 ^Imovzwl 0x780(%r15),%eax$
-##         22266:^I00 $ 
+##         22266:^I00 $
 ##         22267:^Ic5 fd 6f 05 00 00 00 ^Ivmovdqa 0x0(%rip),%ymm0
 ##         2226e:^I00 $
 ##       ...
@@ -349,7 +349,7 @@ tidy:
 	$(if $(wildcard $(GEN)),$(RM) $(wildcard $(GEN)))
 
 clean: tidy
-	$(if $(wildcard $(CLEAN)),$(RM) $(wildcard $(CLEAN))) 
+	$(if $(wildcard $(CLEAN)),$(RM) $(wildcard $(CLEAN)))
 
 
 .PHONY: clean  tidy  asm  asmfns
