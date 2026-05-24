@@ -4,6 +4,7 @@
 *.S
 *.su
 *.log
+res.asm
 
 !ref/*.s
 
