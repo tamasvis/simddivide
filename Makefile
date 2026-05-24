@@ -7,9 +7,15 @@
 ## setting from those. This makefile only serves demonstration purposes.
 
 
-## default target is 'asmfns' which, given a (no-)SIMD setup and
-## a compiler spec, generates a representative extract (by capturing
-## one of the SIMD-friendly targets)
+## default target is 'asmfns' which, given a (no-)SIMD setup and a
+## compiler spec, generates a representative extract, by capturing two
+## of the SIMD-friendly target top-level functions.
+##
+## the 'asm' target disassembles the entire object file; these files
+## contain all detail, but they are too large to keep around in our
+## examples' repository. however, they are considerably more informative
+## than the function-specific ones. (note that disassembly uses objdump,
+## which differs from the gdb-based 'asmfns' function.)
 ##
 ## Architecture control
 ##
@@ -327,11 +333,11 @@ simdprime$(MARK).s: simdprime$(MARK).s0
 asm: simdprime$(MARK).s
 
 
-## representative disassembled functions
+## representative gdb-disassembled functions
 ##   - sfsieve_advance_l(), twin_advance_l()
 ##   - these include a number of secondary, inline functions
 ## generates simdprime$(MARK)-fns.s
-##:
+##
 simdprime$(MARK)-fns.s: simdprime$(MARK).o
 	$(CC) --version >  $@
 	echo            >> $@

@@ -3,7 +3,23 @@
 ## export AVX in env
 ## we supply the rest below
 
-## collect all generated .asm into 'res.asm'
+## collect all generated .asm into this directory
+## note: res.asm is marked to git-ignore; recommended for local results
+##
+GENDIR=res.asm
+BUILD_LOG=$GENDIR/build.log
 
 make clean
+
+CC=gcc make asm asmfns |& tee -a $BUILD_LOG && \
+	cp *.s $GENDIR && make clean
+
+CC=gcc NOSIMD=1 make asm asmfns |& tee -a $BUILD_LOG && \
+	cp *.s $GENDIR && make clean
+
+CC=clang makej asm asmfns |& tee -a $BUILD_LOG && \
+	cp *.s $GENDIR && make clean
+
+CC=clang NOSIMD=1 make asm asmfns |& tee -a $BUILD_LOG && \
+	cp *.s $GENDIR && make clean
 
