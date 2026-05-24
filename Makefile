@@ -21,10 +21,10 @@
 ##     ARM        -- ARM64, Neon (128-bit)
 ##     ARMSVE     -- ARM64, Scalable Vector Extensions
 ##                -- =256 or =512 to force specific SVE bitwidth
-##     NOSIMD     -- prohibit use of SIMD extensions (while still inferring
-##                   architecture, to know the exact invocation to disable)
+##     NOSIMD     -- prohibit use of SIMD extensions; MUST set one of the
+##                   above arch-implying settings to know what to disable
 ##
-## please define exactly one of these variants (except NOSIMD)
+## please define exactly one of these variants (and possibly NOSIMD)
 ## results when multiple are defined are undefined.
 ## we attempt amd64 with AVX2 as default.
 ##
@@ -47,11 +47,11 @@ NO_AVX_ALL := -mno-avx512f -mno-avx10.2 -mno-avx2 -mno-avx \
 ## please do not comment on how nice this is
 ##
 ## we are aware that mixing AVX-512 and AVX-10 options are *strongly*
-## discouraged; we assume any target would resolve this (and we picked
-## these options only to demonstrate our primitives' compilation)
+## discouraged; we assume any target would resolve this---and we picked
+## these options only to demonstrate our primitives' compilation
 ##
-## since our AVX primitives update memory-resident vectors, but there are no
-## AVX return values, we do not expect AVX512/AVX10 interference:
+## since our AVX primitives update memory-resident vectors, but there
+## are no AVX return values, we do not expect AVX512/AVX10 interference:
 ##
 ## from clang.llvm.org/docs/UsersManual.html:
 ## > Current binaries built with AVX512 features can run on Intel
@@ -89,6 +89,8 @@ ifneq ($(NOSIMD),)
 BUILD_ARCH := -march=x86-64-v2 $(NO_AVX_ALL)
 endif
 
+else ifneq ($(AVX),)  ##-----  set but not 256/512  --------------------------
+$(error "AVX setting not recognized")
 
 else ifeq ($(ARM),1)  ##-----  ARM/neon  -------------------------------------
 BUILD_ARCH := -march=armv8-a+simd
