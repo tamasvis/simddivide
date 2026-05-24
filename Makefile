@@ -165,7 +165,7 @@ endif
 
 ## global marker; DESCR is append in the end
 MARK     :=
-
+##
 ## Tier 1 compilers to test for
 CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
 ##
@@ -231,6 +231,7 @@ COPT := $(OPTLEVEL) $(TUNE_ARCH) $(BUILD_ARCH) $(PROF)
 ## verbose disassembly
 DISASM := objdump -d -C -g -S -r -l -t
 
+## TODO: obsoleted
 ## remove interleaved source-file markers
 UNSRC := grep -v -e ^/ -e '^[a-z].*[^a-z0-9]:$$'
 
@@ -327,6 +328,8 @@ asm: simdprime$(MARK).s
 
 
 ## representative disassembled functions
+##   - sfsieve_advance_l(), twin_advance_l()
+##   - these include a number of secondary, inline functions
 ## generates simdprime$(MARK)-fns.s
 ##:
 simdprime$(MARK)-fns.s: simdprime$(MARK).o
