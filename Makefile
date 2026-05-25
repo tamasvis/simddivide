@@ -336,6 +336,10 @@ asm: simdprime$(MARK).s
 measure: simdperf$(MARK)
 
 
+measure.name:
+	echo "BINARY_NAME=simdperf$(MARK)"
+
+
 simdperf$(MARK): simdprime$(MARK).o
 	$(CC) $(CWARN) $(COPT) $(CSAN) $(ALL_OR0) -DSTANDALONE \
 		-v -o $@ $< -lcrypto | \
@@ -372,5 +376,5 @@ clean: tidy
 	$(if $(wildcard $(CLEAN)),$(RM) $(wildcard $(CLEAN)))
 
 
-.PHONY: clean  tidy  asm  asmfns  measure
+.PHONY: clean  tidy  asm  asmfns  measure  measure.name
 

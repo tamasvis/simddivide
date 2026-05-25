@@ -8,6 +8,7 @@
 ##
 GENDIR=res.asm
 BUILD_LOG=$GENDIR/build.log
+ITERATE=5
 
 make clean
 
@@ -16,8 +17,18 @@ for compiler in gcc clang ; do
 		export CC=$compiler
 		[ $simd -le 0 ] && export NOSIMD=1
 
-		make asm asmfns |& tee -a $BUILD_LOG && \
-			cp *.s $GENDIR && make clean
+		BINARY=$( echo $( make measure.name ) | sed 's/.*NAME=//' )
+
+		time make asm asmfns measure |& tee -a $BUILD_LOG && \
+			cp *.s $GENDIR
+
+		rm -f $GENDIR/$BINARY-perf.log
+
+		for i in $( seq -w $iterate ) ; do
+			time ./$BINARY |& tee -a $GENDIR/$BINARY-perf.log
+		done
+
+		make clean
 	done
 done
 
