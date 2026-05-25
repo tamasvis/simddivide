@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ## export AVX in env
 ## we supply the rest below
