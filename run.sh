@@ -19,12 +19,12 @@ for compiler in gcc clang ; do
 
 		BINARY=$( echo $( make measure.name ) | sed 's/.*NAME=//' )
 
-		time make asm asmfns measure |& tee -a $BUILD_LOG && \
+		time make -j asm asmfns measure |& tee -a $BUILD_LOG && \
 			cp *.s $GENDIR
 
 		rm -f $GENDIR/$BINARY-perf.log
 
-		for i in $( seq -w $iterate ) ; do
+		for i in $( seq -w $ITERATE ) ; do
 			time ./$BINARY |& tee -a $GENDIR/$BINARY-perf.log
 		done
 
