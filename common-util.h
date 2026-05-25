@@ -204,7 +204,7 @@ void cu_hexprint(const char *prefix, const void *data, size_t dbytes)
 	const unsigned char *org, *b = (const unsigned char *) data;
 	org = b;
 
-	if ((NULL == b) || (0 == dbytes) || (b+dbytes < b))
+	if ((NULL == b) || (0 == dbytes))
 		return;
 	if (NULL != prefix)
 		printf("%s", prefix);
