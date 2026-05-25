@@ -11,15 +11,13 @@ BUILD_LOG=$GENDIR/build.log
 
 make clean
 
-CC=gcc make asm asmfns |& tee -a $BUILD_LOG && \
-	cp *.s $GENDIR && make clean
+for compiler in gcc clang ; do
+	for simd in {0,1} ; do
+		export CC=$compiler
+		[ $simd -le 0 ] && export NOSIMD=1
 
-CC=gcc NOSIMD=1 make asm asmfns |& tee -a $BUILD_LOG && \
-	cp *.s $GENDIR && make clean
-
-CC=clang makej asm asmfns |& tee -a $BUILD_LOG && \
-	cp *.s $GENDIR && make clean
-
-CC=clang NOSIMD=1 make asm asmfns |& tee -a $BUILD_LOG && \
-	cp *.s $GENDIR && make clean
+		make asm asmfns |& tee -a $BUILD_LOG && \
+			cp *.s $GENDIR && make clean
+	done
+done
 

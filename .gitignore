@@ -5,6 +5,7 @@
 *.su
 *.log
 res.asm
+simdperf-*
 
 !ref/*.s
 

@@ -129,6 +129,7 @@
 #include "common-base.h"
 
 #define USE_HEX2BIN
+#define USE_HEXDUMP -1
 #define USE_READINT
 #define USE_TIMEDIFF
 #define USE_ERR_ANNOTATE
@@ -2999,7 +3000,7 @@ uint64_t twin_advance_l(uint64_t *lsb, unsigned long count,
 /*--------------------------------------
  * wrapper picking widest _advance() function
  */
-static inline
+/* static inline */
 uint64_t twin_advance_w(uint64_t *lsb, unsigned long count,
               struct PP_Mod16bit *dst,
         const struct PP_Mod16bit *src)
@@ -3252,6 +3253,7 @@ uint64_t sfsieve_advance(uint64_t *lsb, unsigned long count,
 // 185480744623799627495673518857527248912279381830119491298336733b
 //
 // (decimal 3221505644354..46517451797307)
+#define  KAT_START_LSB  UINT64_C(0x119491298336733b)
 //
 // P mod (small prime) (5, 7, 11, 13, 17, ..., 32213, 32233, 32237)
 // see firstprimes[]
@@ -3747,7 +3749,7 @@ static int mod16read(struct PP_Mod16bit *ps, const char *base,
 	if (rd > ARRAY_ELEMS(raw))
 		return cu_reportrc("hex/value bitcount range", -1);
 
-	memcpy(ps->qstr, base, hexb);
+	memmove(ps->qstr, base, hexb);
 
 	{
 	uint64_t ndigits[ (PP_MAX_NR_BITS +63) /64 ];          // scratch u64[]
@@ -3916,22 +3918,22 @@ static uint64_t possible[ SF_TEST_UNITS ];
  */
 
 
-#if defined(USE_OPENSSL)
 /*--------------------------------------
- * normalize u64[] to BE64[] in-place
+ * normalize u64[] to BE64[]
+ * tolerate in-place
  */
-static void buffer2be64(uint64_t *p, unsigned int pn)
+static void buffer2be64(unsigned char *pb, const uint64_t *arr, size_t count)
 {
-	if (p && pn) {
+	if (pb && arr && count) {
 		unsigned int i;
 
-		for (i=0; i<pn; ++i) {
-			uint64_t v = p[i];
-			MSBF8_WRITE(&( p[i] ), v);
+		for (i=0; i<count; ++i) {
+			uint64_t curr = arr[i];
+
+			MSBF8_WRITE(&(pb[ 8*i ]), curr);
 		}
 	}
 }
-#endif  // USE_OPENSSL
 
 
 #if defined(USE_OPENSSL)  /*------------------------------------------------*/
@@ -3939,25 +3941,147 @@ static void buffer2be64(uint64_t *p, unsigned int pn)
 
 
 //--------------------------------------
-// serialize be64 increments in-place; hash entire stream; output hex-str hash
-// MAY change p[]
-// note: no error handling; we only use this to demonstrate 
+// return nr. of bytes written to start of (h, hbytes)
+// note: no error handling; we only use this to demonstrate
 //
-static void hash_buffer(uint64_t *p, unsigned int pn)
+static size_t hash_buffer(unsigned char *h, size_t hbytes,
+                    const unsigned char *p, size_t bytes)
 {
-	if (p && pn) {
-		unsigned char h[ EVP_MAX_MD_SIZE ];
-		size_t hb = sizeof(h);
+	size_t rc = 0;
 
-		buffer2be64(p, pn);       // in-place BE64() || with no padding
+	if (p && h && hbytes && bytes) {
+		unsigned char hash[ EVP_MAX_MD_SIZE ];
+		size_t hb = sizeof(hash);
 
-		EVP_Q_digest(NULL, "SHA512", NULL, p, pn*8, h, &hb);
-// TODO: output
+		EVP_Q_digest(NULL, "SHA512", NULL, p, bytes, hash, &hb);
+
+		rc = (hb < hbytes) ? hb : hbytes;
+
+		if (rc)
+			memmove(h, hash, rc);
 	}
+
+	return rc;
 }
 #endif    /*-----  USE_OPENSSL  --------------------------------------------*/
 
 
+//--------------------------------------
+// initialize safe/twin-prime search for the 2048-bit KAT start state
+// returns number of filtering small primes, or 0 if anything failed
+//
+static unsigned int init0_kat_search_state(struct PP_Mod16bit *ps,
+                                                  PrimeType_t type)
+{
+	if (ps) {
+		unsigned int i, filter_primes;
+
+		*ps = (struct PP_Mod16bit) PP_MOD16BIT_INIT0;
+
+		set_default_table_size(ps);
+		ps->mode |= type;
+
+		filter_primes = report_table_prime_count(ps);
+		if (!filter_primes)
+			return 0;
+
+		for (i=0; i<filter_primes; ++i)
+			ps->modn[i] = start_mod_firstprimes[i];
+
+		ps->lsb  = KAT_START_LSB;
+		ps->mod6 = 5;
+
+		return filter_primes;
+	}
+
+	return 0;
+}
+
+
+//--------------------------------------
+static inline struct timespec clock_marked_now(void)
+{
+	struct timespec now;
+
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
+
+	return now;
+}
+
+
+//--------------------------------------
+// run one of the known type's known-answer test
+// type restricted to SIMD_PRIMETYPE_SAFE or SIMD_PRIMETYPE_TWIN
+//
+// lsbs[candidates] set aside to store LS 64 bits of each filted candidate
+// -> buffer may be scratch-used during our current test, not returning
+//
+// non-NULL hash MUST be >=64 bytes; stores SHA512(..BE64(LSBs)..) if non-NULL
+//
+// returns >0 if successful
+//
+static unsigned int
+init0_simd_kat1(unsigned char *hash,
+                     uint64_t *lsbs, unsigned int candidates, PrimeType_t type)
+{
+	unsigned char *be64s = (unsigned char *) lsbs;
+	struct PP_Mod16bit ps = PP_MOD16BIT_INIT0;
+	unsigned int filter_primes, res;
+	struct timespec start, end;
+	size_t hbytes;
+
+	if (hash)
+		memset(hash, 0, 64);
+
+	if (!lsbs || !candidates)
+		return 0;
+
+	filter_primes = init0_kat_search_state(&ps, type);
+	if (!filter_primes)
+		return 0;
+
+	start = clock_marked_now();
+
+	if (type == SIMD_PRIMETYPE_TWIN) {
+		res = twin_advance_w(lsbs, candidates, &ps, &ps);
+	} else if (type == SIMD_PRIMETYPE_SAFE) {
+		res = sfsieve_advance(lsbs, candidates, &ps, &ps);
+	} else {
+		return 0;
+	}
+	end = clock_marked_now();
+
+	if (!res)
+		return 0;
+
+	printf("SIMD.SMALL_PRIMES=%u\n", filter_primes);
+	printf("SIMD.CANDIDATES=%u\n", candidates);
+	printf("SIMD.PRIME.TYPE=%s\n", report_prime_type(&ps));
+	printf("SIMD.LSBS x%" PRIx64 ", x%" PRIx64 ", x%" PRIx64 ", x%" PRIx64
+	        " .. x%" PRIx64 ", x%" PRIx64 "\n",
+		lsbs[0], lsbs[1], lsbs[2], lsbs[3],
+		lsbs[candidates-2], lsbs[candidates-1]);
+	printf("SIMD.TIME.DIFF=%.1fms\n", cu_msdelta2(&start, &end));
+
+	if (hash) {
+		buffer2be64(be64s, lsbs, candidates);
+		cu_hexprint("## TIME.BIN ", be64s, 4*8);
+		cu_hexprint("## ...      ", &(be64s[candidates*8 - 3*8]), 3*8);
+
+		hbytes = hash_buffer(hash, 64, be64s, candidates*8);
+		if (!hbytes)
+			return 0;
+		cu_hexprint("SIMD.HASH(LSBS) ", hash, hbytes);
+	}
+
+	printf("\n");
+	fflush(stdout);
+
+	return candidates;
+}
+
+
+//--------------------------------------
 // find the first million safe-prime/twin-prime candidates with no factors of
 // P/2P+1 (or P/P+2) in the first SIMDPRIME_COUNT entries of firstprimes[]
 //
@@ -3970,35 +4094,23 @@ static void hash_buffer(uint64_t *p, unsigned int pn)
 //
 static int safe_n_twinprime_kat(void)
 {
-	struct PP_Mod16bit ps = PP_MOD16BIT_INIT0;
-	unsigned int i, candidates = 1000000;
-	uint64_t res, *lsbs, filter_primes;
-	unsigned char *be64s = NULL;
+	unsigned int candidates = 1000000;
 	unsigned char hash[ 64 ];
+	uint64_t *lsbs = NULL;
 	int rc = -1;
-
-candidates = 100;
 
 	do {
 	lsbs  = calloc(candidates, 8);
-	be64s = (unsigned char *) lsbs;
 	if (!lsbs)
 		break;
 
-	set_default_table_size(&ps);
-	ps.mode |= SIMD_PRIMETYPE_SAFE;
-
-	filter_primes = report_table_prime_count(&ps);
-	if (!filter_primes)
+	if (!init0_simd_kat1(hash, lsbs, candidates, SIMD_PRIMETYPE_SAFE))
 		break;
 
-					// initial candidate % firstprimes[]
-	for (i=0; i<filter_primes; ++i)
-		ps.modn[i] = start_mod_firstprimes[i];
+	if (!init0_simd_kat1(hash, lsbs, candidates, SIMD_PRIMETYPE_TWIN))
+		break;
 
-	res = sfsieve_advance(lsbs, candidates, &ps, &ps);
-(void) hash;
-(void) be64s;
+	rc = 0;
 	} while (0);
 
 	free(lsbs);
@@ -4017,8 +4129,11 @@ int main(int argc, const char **argv)
 	--argc;
 	++argv;
 
-	if (safe_n_twinprime_kat() <0) {
+	{
+	int k = safe_n_twinprime_kat();
+	if (k <0)
 		return cu_reportrc("twin/safe-prime search failed", -1);
+	return 0;
 	}
 
 	if (argc < 1)
@@ -4095,7 +4210,7 @@ int main(int argc, const char **argv)
 		       UINT64_C(1000000) - (6000000 * pcount / rc));
 	}
 
-	hash_buffer(possible, pcount);
+//	hash_buffer(possible, pcount);
 
 	printf("\n");
 

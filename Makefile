@@ -17,6 +17,8 @@
 ## than the function-specific ones. (note that disassembly uses objdump,
 ## which differs from the gdb-based 'asmfns' function.)
 ##
+## build 'measure' to include a quick sanity check plus perf. comparison loop.
+##
 ## Architecture control
 ##
 ## we force architecture to match one of the following predefined
@@ -173,6 +175,7 @@ endif
 MARK     :=
 ##
 ## Tier 1 compilers to test for
+## TODO: Intel compiler
 CCTIER1 := $(if $(filter gcc clang,$(CC)),$(CC),)
 ##
 ## compiler marker if its a known one (-gcc/-gclang...) or empty
@@ -236,10 +239,6 @@ COPT := $(OPTLEVEL) $(TUNE_ARCH) $(BUILD_ARCH) $(PROF)
 
 ## verbose disassembly
 DISASM := objdump -d -C -g -S -r -l -t
-
-## TODO: obsoleted
-## remove interleaved source-file markers
-UNSRC := grep -v -e ^/ -e '^[a-z].*[^a-z0-9]:$$'
 
 ## drop all empty lines
 NWSPACE := grep .
@@ -333,6 +332,16 @@ simdprime$(MARK).s: simdprime$(MARK).s0
 asm: simdprime$(MARK).s
 
 
+## non/SIMD performance comparison and sanity check
+measure: simdperf$(MARK)
+
+
+simdperf$(MARK): simdprime$(MARK).o
+	$(CC) $(CWARN) $(COPT) $(CSAN) $(ALL_OR0) -DSTANDALONE \
+		-v -o $@ $< -lcrypto | \
+		tee simdprime$(MARK)-perf-build.log
+
+
 ## representative gdb-disassembled functions
 ##   - sfsieve_advance_l(), twin_advance_l()
 ##   - these include a number of secondary, inline functions
@@ -349,7 +358,7 @@ simdprime$(MARK)-fns.s: simdprime$(MARK).o
 
 
 ##--------------------------------------
-GEN   += simdprime*.o *.su
+GEN   += simdprime*.o *.su simdperf$(MARK)
 CLEAN += simd*.s simd*.s0 simd*log
 ##
 ## assume we wish to retain disassembly etc. as 'final output'
@@ -363,5 +372,5 @@ clean: tidy
 	$(if $(wildcard $(CLEAN)),$(RM) $(wildcard $(CLEAN)))
 
 
-.PHONY: clean  tidy  asm  asmfns
+.PHONY: clean  tidy  asm  asmfns  measure
 
