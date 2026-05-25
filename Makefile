@@ -76,16 +76,16 @@ NO_AVX_ALL := -mno-avx512f -mno-avx10.2 -mno-avx2 -mno-avx \
 ## note: do not leave spaces in DESCR
 ##
 ifeq ($(AVX),256)
-BUILD_ARCH := -march=x86-64-v2 -mno-avx512f -mno-avx10.2 -mavx2
+BUILD_ARCH := -march=x86-64-v3 -mno-avx512f -mno-avx10.2 -mavx2
 TUNE_ARCH  :=
 DESCR      := amd64-avx2
 		## -mno-avx512f is redundant; it prohibits AVX-512 by ignoring
 		## the ..512f 'fundamental' instructions, which every other
 		## AVX-512 feature depends on
 		##
-		## arch=x86-64-v2 applies generic tuning
+		## arch=x86-64-v3 applies generic tuning
 ifneq ($(NOSIMD),)
-BUILD_ARCH := -march=x86-64-v2 $(NO_AVX_ALL)
+BUILD_ARCH := -march=x86-64-v3 $(NO_AVX_ALL)
 endif
 
 else ifeq ($(AVX),512)  ##----------------------------------------------------
@@ -94,7 +94,7 @@ TUNE_ARCH  :=
 DESCR      := amd64-avx512
 		## note: -mavx10.1-512 is deprecated by gcc15
 ifneq ($(NOSIMD),)
-BUILD_ARCH := -march=x86-64-v2 $(NO_AVX_ALL)
+BUILD_ARCH := -march=x86-64-v3 $(NO_AVX_ALL)
 endif
 
 else ifneq ($(AVX),)  ##-----  set but not 256/512  --------------------------

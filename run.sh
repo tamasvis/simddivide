@@ -8,7 +8,7 @@
 ##
 GENDIR=res.asm
 BUILD_LOG=$GENDIR/build.log
-ITERATE=5
+ITERATE=11
 
 make clean
 
