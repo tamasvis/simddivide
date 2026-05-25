@@ -8,16 +8,17 @@
 ##
 GENDIR=res.asm
 BUILD_LOG=$GENDIR/build.log
-ITERATE=5
+ITERATE=21
 
 make clean
 
 for compiler in gcc clang ; do
 	for simd in {0,1} ; do
-		export CC=$compiler
+		export CC=$compiler NOSIMD=
 		[ $simd -le 0 ] && export NOSIMD=1
 
 		BINARY=$( echo $( make measure.name ) | sed 's/.*NAME=//' )
+		echo $BINARY
 
 		time make -j asm asmfns measure |& tee -a $BUILD_LOG && \
 			cp *.s $GENDIR
