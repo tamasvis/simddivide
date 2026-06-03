@@ -3,19 +3,19 @@
 ## SIMD sub-variant caller specified.
 ##
 ## We expect versions of generated trial-division code to be directly
-## included in projects, we expect to inherit its compiler/optimization
+## included in projects; we expect to inherit its compiler/optimization
 ## setting from those. This makefile only serves demonstration purposes.
 
 
 ## default target is 'asmfns' which, given a (no-)SIMD setup and a
-## compiler spec, generates a representative extract, by capturing two
-## of the SIMD-friendly target top-level functions.
+## compiler spec (default gcc), generates a representative extract, by
+## capturing two of the SIMD-friendly target top-level functions.
 ##
-## the 'asm' target disassembles the entire object file; these files
+## The 'asm' target disassembles the entire object file; these files
 ## contain all detail, but they are too large to keep around in our
 ## examples' repository. however, they are considerably more informative
-## than the function-specific ones. (note that disassembly uses objdump,
-## which differs from the gdb-based 'asmfns' function.)
+## than the function-specific ones. Note that disassembly uses objdump,
+## which differs from the gdb-based 'asmfns' function.
 ##
 ## build 'measure' to include a quick sanity check plus perf. comparison loop.
 ##
@@ -24,10 +24,11 @@
 ## we force architecture to match one of the following predefined
 ## configurations, by expecting one of the following env. variables:
 ##     AVX=256    -- amd64, AVX2 (256-bit)
-##     AVX=512    -- amd64, AVX-512:w
-##     S=390      -- 64-bit s390x, SIMD extensions (256-bit)
+##     AVX=512    -- amd64, AVX-512
+##     S=390      -- 64-bit s390x, SIMD extensions (128-bit)
 ##     ARM        -- ARM64, Neon (128-bit)
 ##     ARMSVE     -- ARM64, Scalable Vector Extensions
+##                -- =1 generic, not forcing particular width (recommended)
 ##                -- =256 or =512 to force specific SVE bitwidth
 ##     NOSIMD     -- prohibit use of SIMD extensions; MUST set one of the
 ##                   above arch-implying settings to know what to disable
@@ -88,17 +89,21 @@ ifneq ($(NOSIMD),)
 BUILD_ARCH := -march=x86-64-v3 $(NO_AVX_ALL)
 endif
 
+
 else ifeq ($(AVX),512)  ##----------------------------------------------------
 BUILD_ARCH := -march=x86-64-v4 -mavx10.2
 TUNE_ARCH  :=
+## -mtune=graniterapids
 DESCR      := amd64-avx512
 		## note: -mavx10.1-512 is deprecated by gcc15
 ifneq ($(NOSIMD),)
 BUILD_ARCH := -march=x86-64-v3 $(NO_AVX_ALL)
 endif
 
+
 else ifneq ($(AVX),)  ##-----  set but not 256/512  --------------------------
 $(error "AVX setting not recognized")
+
 
 else ifeq ($(ARM),1)  ##-----  ARM/neon  -------------------------------------
 BUILD_ARCH := -march=armv8-a+simd
@@ -110,8 +115,18 @@ BUILD_ARCH := -march=armv8-a+nosimd
 endif
 
 
-else ifeq ($(ARMSVE),1)   ##-----  ARM/SVE  ----------------------------------
-$(error "ARM/SVE things come here")
+else ifeq ($(ARMSVE),1)   ##-----  ARM/SVE; generic w/o width spec  ----------
+$(error "ARM/SVE(generic) things come here")
+BUILD_ARCH := -march=armv8-a+simd
+TUNE_ARCH  :=
+DESCR      := arm64-sve
+##
+ifneq ($(NOSIMD),)
+BUILD_ARCH := -march=armv8-a+nosimd
+endif
+
+else ifeq ($(ARMSVE),256)   ##-----  ARM/SVE; forced to 256-bit width  -------
+$(error "ARM/SVE 256-bit things come here")
 BUILD_ARCH := -march=armv8-a+simd
 TUNE_ARCH  :=
 DESCR      := arm64-sve
@@ -121,8 +136,20 @@ BUILD_ARCH := -march=armv8-a+nosimd
 endif
 
 
-else ifeq ($(S),390)   ##-----  S390  ----------------------------------------
+else ifeq ($(ARMSVE),512)   ##-----  ARM/SVE; forced to 512-bit width  -------
+$(error "ARM/SVE 512-bit things come here")
+BUILD_ARCH := -march=armv8-a+simd
+TUNE_ARCH  :=
+DESCR      := arm64-sve
+##
+ifneq ($(NOSIMD),)
+BUILD_ARCH := -march=armv8-a+nosimd
+endif
+
+
+else ifeq ($(S),390)   ##-----  S390; no other subdivisions  -----------------
 $(error "S390x things come here")
+## TODO
 BUILD_ARCH := -march=armv8-a+simd
 TUNE_ARCH  :=
 DESCR      := arm64-sve
