@@ -349,6 +349,8 @@ simdperf$(MARK): simdprime$(MARK).o
 ## representative gdb-disassembled functions
 ##   - sfsieve_advance_l(), twin_advance_l()
 ##   - these include a number of secondary, inline functions
+##   - both marked as non-static to ensure diagnostics
+##     - aggressive inlining typically eliminates them
 ## generates simdprime$(MARK)-fns.s
 ##
 simdprime$(MARK)-fns.s: simdprime$(MARK).o
