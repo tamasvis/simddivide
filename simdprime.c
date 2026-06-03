@@ -4046,6 +4046,8 @@ init0_simd_kat1(unsigned char *hash,
 		res = twin_advance_w(lsbs, candidates, &ps, &ps);
 	} else if (type == SIMD_PRIMETYPE_SAFE) {
 		res = sfsieve_advance(lsbs, candidates, &ps, &ps);
+	} else if (type == SIMD_PRIMETYPE_PLAIN) {
+		res = plain_advance(lsbs, candidates, &ps, &ps);
 	} else {
 		return 0;
 	}
@@ -4105,6 +4107,9 @@ static int safe_n_twinprime_kat(void)
 		break;
 
 	if (!init0_simd_kat1(hash, lsbs, candidates, SIMD_PRIMETYPE_SAFE))
+		break;
+
+	if (!init0_simd_kat1(hash, lsbs, candidates, SIMD_PRIMETYPE_TWIN))
 		break;
 
 	if (!init0_simd_kat1(hash, lsbs, candidates, SIMD_PRIMETYPE_TWIN))

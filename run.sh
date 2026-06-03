@@ -33,3 +33,21 @@ for compiler in gcc clang ; do
 	done
 done
 
+exit
+
+## crude bash-approximation of ternary switch
+
+export ARCH=arm64 S=neon
+##
+for CC in gcc clang ; do
+  for NOSIMD in {0,1} ; do
+    echo '##' $ARCH $CC $S $NOSIMD
+    grep ms $(
+    ls simdperf-$ARCH-*$CC-*perf.log* | \
+      grep -- $([[ "$NOSIMD" -eq "1" ]] && echo nosimd || echo $ARCH ) | \
+      grep -v -- $([[ "$NOSIMD" -eq "1" ]] && echo NOT_SIMD || echo nosimd )
+    ) | sed 's/:.*=/ /;s/ms$//' | awk '{print $2}' | fmt -2000
+    echo
+  done
+done
+
