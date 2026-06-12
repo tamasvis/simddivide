@@ -4112,7 +4112,7 @@ static int safe_n_twinprime_kat(void)
 	if (!init0_simd_kat1(hash, lsbs, candidates, SIMD_PRIMETYPE_TWIN))
 		break;
 
-	if (!init0_simd_kat1(hash, lsbs, candidates, SIMD_PRIMETYPE_TWIN))
+	if (!init0_simd_kat1(hash, lsbs, candidates, SIMD_PRIMETYPE_PLAIN))
 		break;
 
 	rc = 0;
