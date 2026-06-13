@@ -3940,6 +3940,41 @@ static void buffer2be64(unsigned char *pb, const uint64_t *arr, size_t count)
 #include <openssl/evp.h>
 
 
+#if 0
+// SHA512(LSBS(..possible primes..))
+
+P=baseprime576-p.txt
+5ac4d294f712dec49a644a35f7438f283a59d29fdcb097b091ac05ce9a4e313f022d39fa29254a3cadf90a74ce70606b593a4107750893b62aac9bfc012dd977
+
+P=baseprime1856-p.txt
+9e155d6021729cb70fc522c8f13fcf2215cdd8be145c104d852d64debe4c1544acfbb851b89b48d0d8882cc13af732090ef8227739f61e9dfc5d0320852602b0
+
+P=baseprime3456-p.txt
+d041f21080f73f045a8c3bbfcb015c3237ec90b266844c72d656d102cb9854b56f3d64eb82d9bad1bd46ccc785c737a86e65685bfbe6358767097c2faa60ca3e
+?? 75f3958aad6839394df7..
+
+P=safeprime576-p.txt
+c9802f57bc8555dece4f8ea208126a344de7e5c6a48982bdecdd0254bf4ffd3172dde10d6fc1bcb3a562b40695b7c4488b47561ff7fdf09ab3465dd9fe01ccea
+
+P=safeprime1856-p.txt
+abb3f490fb4a0aee86be9539fec995099732f37b71bab64595f7aa49d2d786286d60a27e794c193581a445adc3730d611d6d8b10966b1086d98a4c6b5e4ac153
+
+P=safeprime3456-p.txt
+a0a6b81c1c278cbbab541e37c47a2f45c9a97f5f771f1501277a9b33490501754d62e03135926f3a96dd27aacd872ece0b795f3f38da02835b08caaabba24162
+
+P=twinprime576-p.txt
+562d4742f6bd76bb0441ca1ce2b05f23cde80ade24d623c990a8c27b4ce71fa5488fd7061e58f30764db44e17ad4022e051969776653d80c7d8ba9dabc058200
+
+P=twinprime1856-p.txt
+437ba978797c88fdfb63a709995075f38518c0b8e847a5616f8c9f7d4369ee36ff3d7a9eb1e2627773eb12fbac33b5f4c89d0679d0f8ede67044ac0e6f7f9918
+
+P=twinprime3456-p.txt
+1cf03937ff5585614eddded0e59bedf8286802cf5c65d3269bfd7c1e40b603bda2fec09cccd91446547d7028f437fc072b1ed0a58389b1442f1e9dfba853652e
+?? 2010b679f60bac5198549..
+
+#endif
+
+
 //--------------------------------------
 // return nr. of bytes written to start of (h, hbytes)
 // note: no error handling; we only use this to demonstrate
