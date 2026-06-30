@@ -48,8 +48,7 @@ for compiler in gcc clang ; do
 			sed 's/.*NAME=//' )
 		echo $BINARY
 
-		time make -j asm asmfns measure |& tee -a $BUILD_LOG && \
-			cp *.s $GENDIR
+		time make -j asm asmfns measure |& tee -a $BINARY-build.log &
 	done
 done
 
