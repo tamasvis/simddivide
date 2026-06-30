@@ -129,7 +129,7 @@ else ifeq ($(ARMSVE),256)   ##-----  ARM/SVE; forced to 256-bit width  -------
 BUILD_ARCH := -march=armv8-a+simd -msve-vector-bits=256
 ##
 TUNE_ARCH  :=
-DESCR      := arm64-sve
+DESCR      := arm64-sve$(ARMSVE)
 ##
 ifneq ($(NOSIMD),)
 BUILD_ARCH := -march=armv8-a+nosimd
@@ -139,7 +139,7 @@ endif
 else ifeq ($(ARMSVE),512)   ##-----  ARM/SVE; forced to 512-bit width  -------
 BUILD_ARCH := -march=armv8-a+simd -msve-vector-bits=256
 TUNE_ARCH  :=
-DESCR      := arm64-sve
+DESCR      := arm64-sve$(ARMSVE)
 ##
 ifneq ($(NOSIMD),)
 BUILD_ARCH := -march=armv8-a+nosimd

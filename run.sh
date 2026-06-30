@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ## export AVX in env
 ## we supply the rest below
@@ -31,6 +31,25 @@ for compiler in gcc clang ; do
 		done
 ##
 ##		make clean
+	done
+done
+
+##----------------------------------------------
+exit
+
+## build only
+##
+for compiler in gcc clang ; do
+	for simd in {0,1} ; do
+		export CC=$compiler NOSIMD=
+		[ $simd -le 0 ] && export NOSIMD=1
+
+		BINARY=$( echo $( make measure.name ) | grep NAME | \
+			sed 's/.*NAME=//' )
+		echo $BINARY
+
+		time make -j asm asmfns measure |& tee -a $BUILD_LOG && \
+			cp *.s $GENDIR
 	done
 done
 
