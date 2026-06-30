@@ -116,8 +116,11 @@ endif
 
 
 else ifeq ($(ARMSVE),1)   ##-----  ARM/SVE; generic w/o width spec  ----------
-$(error "ARM/SVE(generic) things come here")
-BUILD_ARCH := -march=armv8-a+simd
+## "To target all current generation Graviton instances (Graviton2, Graviton3,
+## Graviton4, and Graviton5), use -march=armv8.2-a"
+##     aws.github.io/graviton/c-c++.html
+##
+BUILD_ARCH := -march=armv8.2-a+simd
 TUNE_ARCH  :=
 DESCR      := arm64-sve
 ##
@@ -126,7 +129,7 @@ BUILD_ARCH := -march=armv8-a+nosimd
 endif
 
 else ifeq ($(ARMSVE),256)   ##-----  ARM/SVE; forced to 256-bit width  -------
-BUILD_ARCH := -march=armv8-a+simd -msve-vector-bits=256
+BUILD_ARCH := -march=armv8.2-a+simd -msve-vector-bits=256
 ##
 TUNE_ARCH  :=
 DESCR      := arm64-sve$(ARMSVE)
@@ -137,7 +140,7 @@ endif
 
 
 else ifeq ($(ARMSVE),512)   ##-----  ARM/SVE; forced to 512-bit width  -------
-BUILD_ARCH := -march=armv8-a+simd -msve-vector-bits=256
+BUILD_ARCH := -march=armv8.2-a+simd -msve-vector-bits=512
 TUNE_ARCH  :=
 DESCR      := arm64-sve$(ARMSVE)
 ##
